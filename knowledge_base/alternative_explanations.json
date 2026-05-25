@@ -1,0 +1,195 @@
+{
+  "version": "1.1",
+  "description": "替代解释库 - 防止单因果推断，提供多种可能解释（含场景上下文过滤）",
+  "rules": [
+    {
+      "behavior_tags": ["avoidance", "boundary_setting", "emotional_overwhelm"],
+      "context_keywords": ["冷淡", "不回消息", "不回复", "已读不回", "沉默", "疏远", "回避", "失联"],
+      "primary_mechanism": "attachment_style_avoidant",
+      "alternatives": [
+        {
+          "explanation": "当前处于高强度工作期，注意力资源被完全占用",
+          "likelihood": "high",
+          "context": ["工作旺季", "项目截止", "职业变动"]
+        },
+        {
+          "explanation": "社交疲劳，需要独处恢复能量（内向者常见）",
+          "likelihood": "high",
+          "context": ["连续社交", "大型活动后", "日常疲惫"]
+        },
+        {
+          "explanation": "对当前话题或关系感到不适，用沉默表达边界",
+          "likelihood": "medium",
+          "context": ["话题越界", "关系压力", "价值观冲突"]
+        },
+        {
+          "explanation": "手机使用习惯差异（不看消息/关闭通知）",
+          "likelihood": "medium",
+          "context": ["数字极简", "通知管理", "习惯差异"]
+        }
+      ]
+    },
+    {
+      "behavior_tags": ["defensive", "status_protection", "aggressive_response"],
+      "context_keywords": ["反驳", "攻击", "防御", "生气", "争吵", "批评", "指责", "顶撞", "对抗"],
+      "primary_mechanism": "ego_defense",
+      "alternatives": [
+        {
+          "explanation": "短期工作压力导致的情绪管理能力下降",
+          "likelihood": "high",
+          "context": ["deadline临近", "绩效评估", "职场竞争"]
+        },
+        {
+          "explanation": "成长环境中批评=危险的习得反应",
+          "likelihood": "medium",
+          "context": ["高压家庭", "严格教育", "早期经历"]
+        },
+        {
+          "explanation": "当前处于社会竞争环境，防御是生存策略",
+          "likelihood": "high",
+          "context": ["职场", "学术竞争", "资源争夺"]
+        },
+        {
+          "explanation": "沟通方式差异（直接 vs 间接）的文化/个人风格",
+          "likelihood": "medium",
+          "context": ["跨文化", "性格差异", "沟通风格"]
+        }
+      ]
+    },
+    {
+      "behavior_tags": ["people_pleasing", "low_agency", "conflict_avoidance"],
+      "context_keywords": ["讨好", "顺从", "不敢拒绝", "随便", "都行", "没主见", "怕冲突", "迎合"],
+      "primary_mechanism": "people_pleasing",
+      "alternatives": [
+        {
+          "explanation": "文化背景中集体主义价值观的体现",
+          "likelihood": "high",
+          "context": ["东亚文化", "家庭传统", "教育背景"]
+        },
+        {
+          "explanation": "职业角色要求（服务行业、团队协作）",
+          "likelihood": "high",
+          "context": ["客服", "医疗", "教育", "管理"]
+        },
+        {
+          "explanation": "当前关系阶段（新关系/客气期）的策略",
+          "likelihood": "medium",
+          "context": ["初识", "职场新人", "客户关系"]
+        },
+        {
+          "explanation": "决策疲劳，用小决策节省认知资源",
+          "likelihood": "medium",
+          "context": ["忙碌期", "多任务", "低能量"]
+        }
+      ]
+    },
+    {
+      "behavior_tags": ["insecurity", "control", "attachment"],
+      "context_keywords": ["异地恋", "查岗", "男友", "女友", "恋爱", "不回消息", "已读不回", "前任", "分手", "复合", "暧昧", "吃醋", "嫉妒"],
+      "primary_mechanism": "attachment_style_anxious",
+      "alternatives": [
+        {
+          "explanation": "关系不确定性导致的正常关心（异地/新关系）",
+          "likelihood": "high",
+          "context": ["异地恋", "新恋爱", "关系转折"]
+        },
+        {
+          "explanation": "过往关系创伤后的合理谨慎",
+          "likelihood": "medium",
+          "context": ["前任背叛", "被 ghosting", "信任重建"]
+        },
+        {
+          "explanation": "信息获取习惯差异（喜欢分享日常 vs 喜欢独立）",
+          "likelihood": "medium",
+          "context": ["沟通习惯", "依恋风格差异", "性格"]
+        },
+        {
+          "explanation": "对方确实表现出了距离感，询问是合理的",
+          "likelihood": "medium",
+          "context": ["对方已读不回", "互动减少", "关系变化"]
+        }
+      ]
+    },
+    {
+      "behavior_tags": ["control", "dominance_display", "low_priority"],
+      "context_keywords": ["同事", "领导", "下属", "职场", "工作群", "项目", "会议", "汇报", "绩效", "升职", "办公室", "团队"],
+      "primary_mechanism": "dominance_display",
+      "alternatives": [
+        {
+          "explanation": "职场角色要求的管理行为（项目经理/团队负责人需要把控进度）",
+          "likelihood": "high",
+          "context": ["项目管理", "团队协作", "职责范围内"]
+        },
+        {
+          "explanation": "组织文化中的竞争导向，强势沟通是默认风格",
+          "likelihood": "high",
+          "context": ["高压职场", "结果导向", "狼性文化"]
+        },
+        {
+          "explanation": "对方确实处于高压 deadline 期，沟通风格临时变急促",
+          "likelihood": "medium",
+          "context": ["deadline临近", "项目冲刺", "季度考核"]
+        },
+        {
+          "explanation": "个人工作习惯差异（喜欢同步沟通 vs 异步沟通）",
+          "likelihood": "medium",
+          "context": ["沟通偏好", "工作风格", "效率习惯"]
+        }
+      ]
+    },
+    {
+      "behavior_tags": ["emotional_dysregulation", "trigger_response"],
+      "context_keywords": ["崩溃", "大哭", "暴怒", "失控", "情绪爆发", "歇斯底里", "过度反应", "敏感", "trigger"],
+      "primary_mechanism": "catastrophizing",
+      "alternatives": [
+        {
+          "explanation": "长期压力累积后的正常崩溃点",
+          "likelihood": "high",
+          "context": ["长期高压", "多源压力", "缺乏支持"]
+        },
+        {
+          "explanation": "生理因素（睡眠不足、饥饿、激素周期）",
+          "likelihood": "high",
+          "context": ["熬夜", "经期", "低血糖", "疾病"]
+        },
+        {
+          "explanation": "触发事件触发了过往创伤记忆",
+          "likelihood": "medium",
+          "context": ["类似过往创伤", "anniversary", "敏感话题"]
+        },
+        {
+          "explanation": "对方的行为确实越界，反应是合理的",
+          "likelihood": "medium",
+          "context": ["边界被侵犯", "不尊重", "反复行为"]
+        }
+      ]
+    },
+    {
+      "behavior_tags": ["envy", "competitive_threat", "insecurity"],
+      "context_keywords": ["嫉妒", "眼红", "竞争", "攀比", "同事", "同学", "同行", "升职", "成绩", "成功", "炫耀"],
+      "primary_mechanism": "social_comparison",
+      "alternatives": [
+        {
+          "explanation": "对方的成功确实带来了实际竞争压力",
+          "likelihood": "high",
+          "context": ["同行", "同部门", "资源竞争"]
+        },
+        {
+          "explanation": "价值观差异（不认为对方的方向值得庆祝）",
+          "likelihood": "medium",
+          "context": ["价值分歧", "不同路径", "优先级差异"]
+        },
+        {
+          "explanation": "社交能量低，无法真诚表达情感",
+          "likelihood": "medium",
+          "context": ["疲惫", "情绪低落", "introversion"]
+        },
+        {
+          "explanation": "单纯的信息过载，没来得及回应",
+          "likelihood": "medium",
+          "context": ["消息多", "忙碌", "信息疲劳"]
+        }
+      ]
+    }
+  ]
+}

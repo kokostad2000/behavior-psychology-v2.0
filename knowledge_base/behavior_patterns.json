@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "description": "行为模式库 - 将自然语言描述的行为映射为结构化标签",
+  "patterns": [
+    {
+      "behavior": "被指出错误后攻击别人",
+      "tags": ["defensive", "status_protection", "aggressive_response", "ego_defense"],
+      "context_hints": ["被批评", "被指出错误", "被质疑"],
+      "intensity": "high"
+    },
+    {
+      "behavior": "反复强调自己的资历/成就",
+      "tags": ["status_protection", "authority_claiming", "insecurity_masking", "dominance_display"],
+      "context_hints": ["被质疑", "竞争环境", "新环境"],
+      "intensity": "medium"
+    },
+    {
+      "behavior": "打断别人说话",
+      "tags": ["control", "impatience", "anxiety", "dominance_display"],
+      "context_hints": ["争论", "会议", "紧张场合"],
+      "intensity": "medium"
+    },
+    {
+      "behavior": "反复解释同一件事",
+      "tags": ["cognitive_dissonance", "anxiety", "need_for_validation", "over_explaining"],
+      "context_hints": ["被质疑", "感到不安", "需要被理解"],
+      "intensity": "low"
+    },
+    {
+      "behavior": "回避回应/转移话题",
+      "tags": ["conflict_avoidance", "emotional_regulation", "defensive", "overwhelm"],
+      "context_hints": ["冲突", "压力", "感到不适"],
+      "intensity": "medium"
+    },
+    {
+      "behavior": "不回消息/已读不回",
+      "tags": ["avoidance", "boundary_setting", "emotional_overwhelm", "low_priority"],
+      "context_hints": ["日常", "冲突后", "忙碌期"],
+      "intensity": "low"
+    },
+    {
+      "behavior": "过度道歉",
+      "tags": ["anxiety", "people_pleasing", "fear_of_rejection", "low_self_worth"],
+      "context_hints": ["轻微失误", "日常互动", "新关系"],
+      "intensity": "low"
+    },
+    {
+      "behavior": "突然冷淡/疏远",
+      "tags": ["emotional_regulation", "boundary_setting", "conflict_avoidance", "burnout"],
+      "context_hints": ["冲突后", "长期压力", "关系变化"],
+      "intensity": "medium"
+    },
+    {
+      "behavior": "过度分享个人信息",
+      "tags": ["trust_seeking", "connection_seeking", "boundary_blur", "loneliness"],
+      "context_hints": ["新关系", "深夜", "情绪低落"],
+      "intensity": "low"
+    },
+    {
+      "behavior": "总是最后一个回复",
+      "tags": ["control", "power_dynamic", "avoidance", "low_priority"],
+      "context_hints": ["日常聊天", "群聊", "工作沟通"],
+      "intensity": "low"
+    },
+    {
+      "behavior": "在群聊中突然沉默",
+      "tags": ["social_anxiety", "observer_role", "emotional_regulation", "discomfort"],
+      "context_hints": ["争论", "话题转换", "新人加入"],
+      "intensity": "low"
+    },
+    {
+      "behavior": "频繁询问你在做什么",
+      "tags": ["insecurity", "connection_seeking", "control", "attachment"],
+      "context_hints": ["恋爱关系", "友谊", "异地"],
+      "intensity": "medium"
+    },
+    {
+      "behavior": "对小事过度反应",
+      "tags": ["emotional_dysregulation", "stress_accumulation", "trigger_response", "boundary_violation"],
+      "context_hints": ["长期压力", "疲惫", "累积不满"],
+      "intensity": "high"
+    },
+    {
+      "behavior": "总是说'随便/都行'",
+      "tags": ["conflict_avoidance", "low_agency", "people_pleasing", "decision_fatigue"],
+      "context_hints": ["日常决策", "关系互动", "疲惫期"],
+      "intensity": "low"
+    },
+    {
+      "behavior": "对别人的成功表现出冷漠",
+      "tags": ["envy", "insecurity", "competitive_threat", "emotional_regulation"],
+      "context_hints": ["同行", "朋友", "相似背景"],
+      "intensity": "medium"
+    }
+  ]
+}

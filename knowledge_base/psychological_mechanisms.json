@@ -1,0 +1,168 @@
+{
+  "version": "1.0",
+  "description": "心理机制库 - 行为背后的心理机制、普适性分级、科学解释",
+  "mechanisms": [
+    {
+      "name": "ego_defense",
+      "display_name": "自我防御机制",
+      "description": "当自我形象受到威胁时，心理系统启动的自我保护反应",
+      "universality": "high",
+      "scientific_basis": "Freudian psychoanalysis / modern cognitive psychology",
+      "examples": ["被批评后攻击", "过度解释", "否认错误"],
+      "alternative_triggers": ["短期工作压力", "社交竞争", "评价焦虑"]
+    },
+    {
+      "name": "cognitive_dissonance",
+      "display_name": "认知失调",
+      "description": "当行为与自我认知不一致时，产生的心理不适感及缓解行为",
+      "universality": "high",
+      "scientific_basis": "Festinger, 1957",
+      "examples": ["做了违背价值观的事后的合理化", "购买后的辩护", "信念与行为冲突"],
+      "alternative_triggers": ["信息过载", "价值观冲突", "环境压力"]
+    },
+    {
+      "name": "loss_aversion",
+      "display_name": "损失厌恶",
+      "description": "人们对损失的敏感度远高于对等量收益的敏感度",
+      "universality": "high",
+      "scientific_basis": "Kahneman & Tversky, Prospect Theory, 1979",
+      "examples": ["害怕结束关系", "不愿放弃沉没成本", "过度保守"],
+      "alternative_triggers": ["资源稀缺", "安全感需求", "风险控制偏好"]
+    },
+    {
+      "name": "social_identity",
+      "display_name": "社会认同理论",
+      "description": "个体通过群体成员身份获得自我认同，对内群体偏袒、对外群体排斥",
+      "universality": "high",
+      "scientific_basis": "Tajfel & Turner, 1979",
+      "examples": ["小圈子排斥外人", "品牌忠诚度", "群体极化"],
+      "alternative_triggers": ["归属感需求", "安全感", "价值观一致"]
+    },
+    {
+      "name": "attachment_style_anxious",
+      "display_name": "焦虑型依恋",
+      "description": "对亲密关系过度担忧被抛弃，需要频繁确认对方在乎自己",
+      "universality": "medium",
+      "scientific_basis": "Bowlby, Ainsworth attachment theory",
+      "examples": ["频繁确认对方心意", "害怕独处", "过度依赖"],
+      "alternative_triggers": ["童年经历", "前任创伤", "自我价值感低"]
+    },
+    {
+      "name": "attachment_style_avoidant",
+      "display_name": "回避型依恋",
+      "description": "在亲密关系中回避情感亲近，用距离保护自己",
+      "universality": "medium",
+      "scientific_basis": "Bowlby, Ainsworth attachment theory",
+      "examples": ["已读不回", "回避深入话题", "突然冷淡"],
+      "alternative_triggers": ["个人空间需求", "情感疲劳", "独立性偏好"]
+    },
+    {
+      "name": "people_pleasing",
+      "display_name": "讨好行为",
+      "description": "通过满足他人需求来获得认可，压抑自己的真实需求",
+      "universality": "medium",
+      "scientific_basis": "Codependency / Self-determination theory",
+      "examples": ["不敢拒绝", "过度道歉", "总是说随便"],
+      "alternative_triggers": ["文化背景", "职业需求", "性格温和"]
+    },
+    {
+      "name": "emotional_regulation",
+      "display_name": "情绪调节",
+      "description": "管理和应对情绪反应的策略，包括压抑、转移、回避等",
+      "universality": "high",
+      "scientific_basis": "Gross, 1998 / Emotion regulation theory",
+      "examples": ["沉默", "转移话题", "突然冷淡", "过度工作"],
+      "alternative_triggers": ["疲劳", "情绪管理能力差异", "环境支持度"]
+    },
+    {
+      "name": "catastrophizing",
+      "display_name": "灾难化思维",
+      "description": "将负面事件放大到灾难性后果的倾向",
+      "universality": "medium",
+      "scientific_basis": "CBT / Cognitive psychology",
+      "examples": ["一次失败=人生完了", "不回消息=关系破裂"],
+      "alternative_triggers": ["过往创伤", "焦虑症倾向", "信息不全"]
+    },
+    {
+      "name": "projection",
+      "display_name": "投射",
+      "description": "将自己不愿承认的特质或情绪归因于他人",
+      "universality": "medium",
+      "scientific_basis": "Freudian defense mechanism",
+      "examples": [" cheating的人怀疑伴侣", "自己懒惰说别人懒"],
+      "alternative_triggers": ["自我认知盲区", "道德标准差异", "误解"]
+    },
+    {
+      "name": "fundamental_attribution_error",
+      "display_name": "基本归因错误",
+      "description": "倾向于将他人行为归因于其性格而非情境因素",
+      "universality": "high",
+      "scientific_basis": "Ross, 1977",
+      "examples": ["他迟到=不靠谱", "我迟到=堵车"],
+      "alternative_triggers": ["信息不完整", "社会认知偏差", "文化差异"]
+    },
+    {
+      "name": "boundary_setting",
+      "display_name": "边界设定",
+      "description": "通过行为建立个人空间和心理距离的健康机制",
+      "universality": "high",
+      "scientific_basis": "Self-determination theory / Interpersonal theory",
+      "examples": ["已读不回", "拒绝邀请", "突然冷淡"],
+      "alternative_triggers": ["个人空间需求", "能量管理", "自我保护"]
+    },
+    {
+      "name": "burnout",
+      "display_name": "倦怠",
+      "description": "长期压力导致的身心耗竭状态",
+      "universality": "high",
+      "scientific_basis": "Maslach Burnout Inventory, 1981",
+      "examples": ["突然冷淡", "回避社交", "效率下降"],
+      "alternative_triggers": ["工作负荷", "长期压力", "缺乏恢复"]
+    },
+    {
+      "name": "control",
+      "display_name": "控制欲",
+      "description": "通过支配他人或环境来获得确定感和安全感的心理倾向",
+      "universality": "medium",
+      "scientific_basis": "Self-determination theory / Control theory",
+      "examples": ["频繁查岗", "干涉决策", "要求报备行踪", "主导对话节奏"],
+      "alternative_triggers": ["焦虑型依恋", "过往失控经历", "高不确定性环境"]
+    },
+    {
+      "name": "anxiety",
+      "display_name": "焦虑反应",
+      "description": "对潜在威胁的过度警觉和担忧，驱动回避或控制行为",
+      "universality": "high",
+      "scientific_basis": "Beck's cognitive model of anxiety / Spielberger state-trait anxiety",
+      "examples": ["反复确认", "过度准备", "灾难化预期", "回避风险"],
+      "alternative_triggers": ["生理因素", "生活压力事件", "信息不完整"]
+    },
+    {
+      "name": "impatience",
+      "display_name": "耐心缺乏",
+      "description": "对延迟和等待的低容忍度，倾向于追求即时满足或快速结果",
+      "universality": "medium",
+      "scientific_basis": "Delay discounting theory / Temporal motivation theory",
+      "examples": ["打断他人", "催促决策", "频繁切换任务", "过早下结论"],
+      "alternative_triggers": ["时间压力", "高成就动机", "多巴胺寻求倾向"]
+    },
+    {
+      "name": "dominance_display",
+      "display_name": "权力展示",
+      "description": "通过行为或言语彰显地位、权威或优越性，以维护社会等级",
+      "universality": "medium",
+      "scientific_basis": "Social dominance theory / Evolutionary psychology",
+      "examples": ["打断他人发言", "贬低他人贡献", "占据物理空间", "控制会议节奏"],
+      "alternative_triggers": ["地位威胁", "竞争环境", "组织文化鼓励"]
+    },
+    {
+      "name": "low_priority",
+      "display_name": "优先级感知差异",
+      "description": "个体对关系或任务重要性的排序差异，导致投入程度不对等",
+      "universality": "high",
+      "scientific_basis": "Interdependence theory / Equity theory",
+      "examples": ["回复消息延迟", "回避深度沟通", "资源分配不均", "情感投入不对等"],
+      "alternative_triggers": ["多重角色冲突", "认知资源有限", "价值观差异"]
+    }
+  ]
+}

@@ -9,10 +9,19 @@ class TestBoundaryViolation:
 
 class TestPatternSummary:
     def test_empty(self):
-        assert _generate_pattern_summary({"behavior_history":[]}) == ""
+        summary, tags, mechs = _generate_pattern_summary({"behavior_history":[]})
+        assert summary == ""
+        assert tags == []
+        assert mechs == []
     def test_insufficient(self):
         p = {"behavior_history":[{"tags":["a"],"mechanisms":[]},{"tags":["b"],"mechanisms":[]}]}
-        assert "未呈现明显重复规律" in _generate_pattern_summary(p)
+        summary, tags, mechs = _generate_pattern_summary(p)
+        assert "未呈现明显重复规律" in summary
+        assert tags == []
+        assert mechs == []
     def test_repeated(self):
         p = {"behavior_history":[{"tags":["x"],"mechanisms":["m"]},{"tags":["x"],"mechanisms":["m"]},{"tags":["x"],"mechanisms":["m"]}]}
-        assert "并非稳定人格特质" in _generate_pattern_summary(p)
+        summary, tags, mechs = _generate_pattern_summary(p)
+        assert "并非稳定人格特质" in summary
+        assert "x" in tags
+        assert "m" in mechs

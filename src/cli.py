@@ -57,21 +57,6 @@ def _format_response_markdown(response) -> str:
     else:
         lines.append("- 未找到匹配的替代解释")
 
-    if response.llm_insights:
-        lines.extend(["", "## LLM 深度增强分析"])
-        if response.llm_insights.mechanisms:
-            lines.append("### 可能的心理机制")
-            for mech in response.llm_insights.mechanisms:
-                lines.append(f"- {mech}")
-        if response.llm_insights.biases_or_factors:
-            lines.append("### 认知偏差或社会因素")
-            for bias in response.llm_insights.biases_or_factors:
-                lines.append(f"- {bias}")
-        if response.llm_insights.observation_suggestions:
-            lines.append("### 建议的后续观察方向")
-            for suggestion in response.llm_insights.observation_suggestions:
-                lines.append(f"- {suggestion}")
-
     lines.extend(["", "---", "", f"> {response.disclaimer}"])
 
     return "\n".join(lines)
@@ -124,19 +109,18 @@ def _format_profile_markdown(subject_id: str, profile: Dict[str, Any]) -> str:
     lines.append(f"- **首次记录**：{created_at or '（未知）'}")
     lines.append(f"- **最近更新**：{updated_at or '（未知）'}")
 
-    pattern_summary = profile.get("pattern_summary", {})
-    if pattern_summary:
+    pattern_summary = profile.get("pattern_summary", "")
+    recurring_tags = profile.get("recurring_tags", [])
+    recurring_mechanisms = profile.get("recurring_mechanisms", [])
+    if pattern_summary or recurring_tags or recurring_mechanisms:
         lines.extend(["", "## 模式摘要"])
-        summary_text = pattern_summary.get("summary_text", "")
-        if summary_text:
-            lines.append(f"> {summary_text}")
-        common_tags = pattern_summary.get("common_tags", [])
-        if common_tags:
-            lines.append(f"- **高频标签**：{', '.join(common_tags)}")
-        recurring_mechanisms = pattern_summary.get("recurring_mechanisms", [])
+        if pattern_summary:
+            lines.append(f"> {pattern_summary}")
+        if recurring_tags:
+            lines.append(f"- **高频标签**：{', '.join(recurring_tags)}")
         if recurring_mechanisms:
             lines.append(f"- **重复机制**：{', '.join(recurring_mechanisms)}")
-        if not summary_text and not common_tags and not recurring_mechanisms:
+        if not pattern_summary and not recurring_tags and not recurring_mechanisms:
             lines.append("- 暂无足够数据生成模式摘要")
 
     behavior_history = profile.get("behavior_history", [])

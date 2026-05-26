@@ -35,21 +35,6 @@ class _AlternativeExplanation(BaseModel):
     reasoning: str = Field(..., description="该视角的中文推理说明")
 
 
-class _LLMInsight(BaseModel):
-    mechanisms: list[str] = Field(
-        default_factory=list,
-        description="LLM 推测的可能心理机制名称列表",
-    )
-    biases_or_factors: list[str] = Field(
-        default_factory=list,
-        description="LLM 识别的认知偏差或社会因素列表",
-    )
-    observation_suggestions: list[str] = Field(
-        default_factory=list,
-        description="LLM 建议的后续观察方向",
-    )
-
-
 class AnalysisResponse(BaseModel):
     tags: list[str] = Field(
         default_factory=list,
@@ -82,10 +67,6 @@ class AnalysisResponse(BaseModel):
         default=None,
         description="回传的分析对象 ID，与请求中的 subject_id 保持一致，便于调用端关联",
     )
-    llm_insights: Optional[_LLMInsight] = Field(
-        default=None,
-        description="LLM 深度增强分析结果（可选），当置信度低或机制为空时触发",
-    )
     pattern_summary: Optional[str] = Field(
         default=None,
         description="当 subject_id 历史记录 >= 3 条时，返回该对象的行为模式摘要",
@@ -97,8 +78,7 @@ class AnalysisResponse(BaseModel):
     degradation_flags: list[str] = Field(
         default_factory=list,
         description="降级状态标签列表，空列表表示无降级。"
-                    "可选值：embedding_degraded, keyword_only, "
-                    "llm_skipped, mechanism_not_found, profile_update_failed",
+                    "可选值：llm_no_tags, llm_no_mechanisms, profile_update_failed",
     )
 
     @field_validator("universality_rating")

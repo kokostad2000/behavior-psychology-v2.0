@@ -33,20 +33,15 @@ description: >
 - [ ] 1. Parse the input into `AnalysisRequest`.
   - Required: `behavior_description`
   - Optional: `context`, `subject_id`, `request_id`
-- [ ] 2. Retrieve similar cases via semantic search (embedding similarity).
-- [ ] 3. Match behavior tags from `behavior_patterns.json` using keyword
-  and case-based signals.
-- [ ] 4. Lookup psychological mechanisms from `psychological_mechanisms.json`
-  based on matched tags.
-- [ ] 5. Lookup alternative explanations from `alternative_explanations.json`
-  using tag + context keyword filtering.
-- [ ] 6. Compute `confidence` (0.0–1.0) and `universality_rating`
-  (高 / 中 / 低).
-- [ ] 7. If `confidence < 0.5` or no mechanisms matched, trigger LLM deep
-  analysis for semantic enhancement.
-- [ ] 8. If `subject_id` is provided, update the subject's profile and
+- [ ] 2. Boundary check: invoke `_check_boundary_violation()` to intercept
+  clinical diagnosis, legal judgment, or crisis-related requests.
+- [ ] 3. LLM direct analysis: invoke `_llm_analyze()` to get behavior tags,
+  psychological mechanisms, alternative explanations, confidence, and
+  universality rating from the LLM.
+- [ ] 4. Assemble `AnalysisResponse` from the LLM result.
+- [ ] 5. If `subject_id` is provided, update the subject's profile and
   regenerate `pattern_summary` when history >= 3 entries.
-- [ ] 9. Assemble and return `AnalysisResponse`.
+- [ ] 6. Return `AnalysisResponse`.
 
 ## Input
 
@@ -72,7 +67,9 @@ description: >
 | `universality_rating` | string | 高 / 中 / 低 |
 | `disclaimer` | string | Fixed disclaimer text. |
 | `subject_id` | string | Echo of request `subject_id`. |
-| `llm_insights` | object | Optional deep-analysis enrichment. |
+| `pattern_summary` | string | Pattern summary when history >= 3 entries. |
+| `blocked` | boolean | Whether analysis was blocked by boundary check. |
+| `degradation_flags` | list[string] | Degradation tags (e.g., llm_no_tags, profile_update_failed). |
 
 ## References
 
@@ -89,10 +86,8 @@ description: >
 
 | Stage | Failure | Degradation |
 |-------|---------|-------------|
-| Embedding generation | openai SDK missing or API error | Skip semantic search; rely on keyword matching only (lower precision). |
-| Case retrieval | Empty cases.json or all embeddings empty | Return empty similar_cases; confidence derived from tags + mechanisms only. |
-| Tag matching | No keywords hit | Tags = empty; mechanisms = empty; confidence will be low; LLM deep analysis triggered. |
-| LLM deep analysis | API error or timeout | Skip enrichment; base response still returned with low-confidence warning. |
+| LLM API call | No DEEPSEEK_API_KEY configured | Return empty result with warning; suggest setting env var. |
+| LLM API call | API error or timeout | Return empty result with warning; suggest checking network / key balance. |
 | Profile update | Disk I/O error | Log warning; analysis result unaffected. |
 
 ## Constraints

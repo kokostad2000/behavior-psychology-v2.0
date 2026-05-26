@@ -7,7 +7,7 @@
 ```json
 {
   "name": "analyzing-behavior",
-  "description": "分析用户描述的行为或社交互动，识别可能的心理机制、认知模式与社会因素。提供结构化分析报告，包含替代解释、普适性评级与置信度分数。适用于'帮我分析一下...'、'为什么TA会...'、'你怎么看这件事...'等场景。明确不是诊断工具，不输出人格障碍或临床标签。"，
+  "description": "分析用户描述的行为或社交互动，识别可能的心理机制、认知模式与社会因素。提供结构化分析报告，包含替代解释、普适性评级与置信度分数。适用于'帮我分析一下...'、'为什么TA会...'、'你怎么看这件事...'等场景。明确不是诊断工具，不输出人格障碍或临床标签。",
   "parameters": {
     "type": "object",
     "properties": {
@@ -88,6 +88,19 @@ Function Calling 的返回（即 `AnalysisResponse` 的 JSON 表示）应遵循�
     "subject_id": {
       "type": "string",
       "description": "回传的分析对象 ID，与请求中的 subject_id 保持一致"
+    },
+    "pattern_summary": {
+      "type": "string",
+      "description": "当同一对象历史记录 >= 3 条时，自动生成的行为模式摘要"
+    },
+    "blocked": {
+      "type": "boolean",
+      "description": "是否因边界限制（临床诊断/法律/危机）而未执行分析"
+    },
+    "degradation_flags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "降级状态标签，例如 llm_no_tags, profile_update_failed"
     }
   },
   "required": ["tags", "psychological_mechanisms", "alternative_explanations", "confidence", "universality_rating", "disclaimer"]
@@ -138,8 +151,8 @@ Function Calling 的返回（即 `AnalysisResponse` 的 JSON 表示）应遵循�
 ### MCP 集成要点
 
 1. **Server 实现**：实现 `BehaviorAnalyzer` 抽象基类的具体类，在 `tools/call` 处理方法中解析 `arguments` 为 `AnalysisRequest`，调用 `analyze()` 后将 `AnalysisResponse` 序列化为 JSON 返回。
-2. **配置校验**：Server 启动时必须先调用 `validate_config()`，确保 `OPENAI_API_KEY` 或 `~/.openclaw/openclaw.json` 至少一项可用，否则拒绝启动并返回明确的中文错误信息。
-3. **生命周期管理**：建议将 `BehaviorAnalyzer` 实例作为 Server 的共享依赖注入，避免每次请求重复初始化 RAG 索引或知识库。
+2. **配置校验**：Server 启动时必须先调用 `validate_config()`，确保 `DEEPSEEK_API_KEY`、`OPENAI_API_KEY` 或 `~/.openclaw/openclaw.json` 至少一项可用，否则拒绝启动并返回明确的中文错误信息。
+3. **生命周期管理**：建议将 `BehaviorAnalyzer` 实例作为 Server 的共享依赖注入，避免每次请求重复初始化知识库。
 4. **错误映射**：将 `validate_config()` 抛出的 `RuntimeError` 映射为 MCP 的 `-32603` (Internal Error) 并附带中文 `message`，便于客户端排查。
 
 ---
@@ -173,7 +186,7 @@ python src/mcp_server.py
         "/absolute/path/to/behavior-psychology/src/mcp_server.py"
       ],
       "env": {
-        "OPENAI_API_KEY": "sk-xxx"
+        "DEEPSEEK_API_KEY": "sk-xxx"
       }
     }
   }
@@ -182,7 +195,7 @@ python src/mcp_server.py
 
 > **注意**：
 > - `args` 中的路径必须使用**绝对路径**。
-> - `env` 中设置 `OPENAI_API_KEY` 是推荐做法；也可省略，改为在 `~/.openclaw/openclaw.json` 中配置 `openai.apiKey`。
+> - `env` 中设置 `DEEPSEEK_API_KEY` 是推荐做法；也可省略，改为在 `~/.openclaw/openclaw.json` 中配置 `deepseek.apiKey`。
 > - 配置保存后重启 Claude Desktop，客户端会自动通过 `initialize` → `tools/list` 完成握手与工具发现。
 
 ### 支持的 MCP 方法
@@ -219,7 +232,7 @@ OpenClaw 额外配置存放在 `~/.openclaw/openclaw.json`，格式如下：
 
 ```json
 {
-  "openai": {
+  "deepseek": {
     "apiKey": "sk-xxx"
   }
 }
@@ -307,11 +320,7 @@ CLI 以 Markdown 格式输出结果，适合在终端直接阅读或复制到文
   "alias": "",
   "created_at": "2026-05-25T00:43:02.250149",
   "updated_at": "2026-05-25T01:04:44.353892",
-  "pattern_summary": {
-    "common_tags": ["control", "anxiety", "dominance_display"],
-    "recurring_mechanisms": ["emotional_regulation", "boundary_setting"],
-    "summary_text": "此对象在近期的互动中频繁表现出control、anxiety、dominance_display等行为特征，重复出现emotional_regulation、boundary_setting等心理机制。"
-  },
+  "pattern_summary": "该对象在近期互动中反复表现出 control、anxiety、dominance_display 等行为模式，常见潜在机制包括 emotional_regulation、boundary_setting。需注意这些模式可能受情境因素影响，并非稳定人格特质。",
   "behavior_history": [
     {
       "timestamp": "2026-05-25T00:43:02.252734",

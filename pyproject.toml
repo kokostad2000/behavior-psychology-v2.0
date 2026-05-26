@@ -4,17 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "behavior-psychology"
-version = "1.3.0"
-description = "行为心理分析引擎 — 基于知识库与 RAG 的行为动机推测工具"
+version = "2.0.0"
+description = "行为心理分析引擎 — 基于 LLM 直接推理的行为动机推测工具"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Behavior Psychology Team"}
 ]
-keywords = ["psychology", "behavior-analysis", "rag", "mcp", "openai"]
+keywords = ["psychology", "behavior-analysis", "llm", "mcp", "deepseek"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -24,6 +24,7 @@ classifiers = [
 dependencies = [
     "openai>=1.0.0",
     "pydantic>=2.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]

@@ -1,119 +1,132 @@
 """
-核心分析器模块：实现 DefaultBehaviorAnalyzer，串联完整的心理分析工作流。
+核心分析器模块：实现 DefaultBehaviorAnalyzer，基于 LLM 直接推理的心理分析工作流。
 
-工作流：输入解析 → 知识库检索 → 机制匹配 → 结果组装 → 画像更新
+工作流：输入解析 → LLM 推理 → 结果组装 → 画像更新
 """
 
 import json
-import math
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
+
+from dotenv import load_dotenv
+from openai import AsyncOpenAI
+
+load_dotenv()
 
 from src.interfaces import BehaviorAnalyzer
 from src.schemas import (
     AnalysisRequest,
     AnalysisResponse,
     _AlternativeExplanation,
-    _LLMInsight,
     _PsychologicalMechanism,
-    validate_config,
 )
 
 # ── Paths ─────────────────────────────────────────────────────────
 
 SKILL_DIR = Path(__file__).parent.parent
 KB_DIR = SKILL_DIR / "knowledge_base"
-CASES_PATH = KB_DIR / "cases.json"
 PATTERNS_PATH = KB_DIR / "behavior_patterns.json"
 MECHANISMS_PATH = KB_DIR / "psychological_mechanisms.json"
 ALTERNATIVES_PATH = KB_DIR / "alternative_explanations.json"
 PROFILES_PATH = KB_DIR / "user_profiles.json"
 
-# ── Embedding & Similarity (复用 rag_retriever 逻辑) ──────────────
+
+# ── Config Helpers ───────────────────────────────────────────────
 
 
-def _get_openai_api_key() -> str:
-    """从环境变量或 OpenClaw 配置文件中获取 OpenAI API Key。"""
-    key = os.environ.get("OPENAI_API_KEY", "")
+def _get_dashscope_key() -> str:
+    """获取 DashScope API Key，优先环境变量，其次配置文件。"""
+    key = os.environ.get("DASHSCOPE_API_KEY", "")
+    if key:
+        return key
+    config_path = Path.home() / ".openclaw" / "openclaw.json"
+    if config_path.exists():
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                key = cfg.get("dashscope", {}).get("apiKey", "")
+        except Exception:
+            pass
+    return key
+
+
+def _get_fallback_key() -> str:
+    """获取备用 API Key（DeepSeek / OpenAI），用于兼容场景。"""
+    key = os.environ.get("DEEPSEEK_API_KEY", "")
+    if not key:
+        key = os.environ.get("OPENAI_API_KEY", "")
     if not key:
         config_path = Path.home() / ".openclaw" / "openclaw.json"
         if config_path.exists():
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
-                    key = cfg.get("openai", {}).get("apiKey", "")
+                    key = cfg.get("deepseek", {}).get("apiKey", "")
+                    if not key:
+                        key = cfg.get("openai", {}).get("apiKey", "")
             except Exception:
                 pass
     return key
 
 
-async def _get_embedding(text: str, model: str = "text-embedding-3-small") -> List[float]:
-    """通过 OpenAI API 异步生成文本的 embedding 向量。
+def _get_api_base_url() -> str:
+    """获取 API Base URL，若配置了 DeepSeek Key 则返回 DeepSeek 地址。"""
+    if os.environ.get("DEEPSEEK_API_KEY", ""):
+        return "https://api.deepseek.com"
+    config_path = Path.home() / ".openclaw" / "openclaw.json"
+    if config_path.exists():
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                if cfg.get("deepseek", {}).get("apiKey", ""):
+                    return "https://api.deepseek.com"
+        except Exception:
+            pass
+    return ""
 
-    Args:
-        text: 待编码的文本。
-        model: 使用的 embedding 模型名称。
 
-    Returns:
-        浮点数列表，表示文本的向量嵌入。
-        若因网络问题调用失败，降级为空向量并记录中文警告日志。
+def validate_config() -> None:
+    """校验运行时配置，确保 AI 接入凭证可用。
 
-    Raises:
-        RuntimeError: 当 API Key 不可用时抛出。
+    检查以下任一凭证：
+    1. 环境变量 DASHSCOPE_API_KEY（优先，用于 LLM 推理）
+    2. 环境变量 OPENAI_API_KEY 或 DEEPSEEK_API_KEY
+    3. 配置文件 ~/.openclaw/openclaw.json
+
+    若均不可用，抛出 RuntimeError 并提供友好的中文报错信息。
     """
-    import logging
+    dashscope_key = os.getenv("DASHSCOPE_API_KEY", "").strip()
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    openclaw_config_path = os.path.expanduser("~/.openclaw/openclaw.json")
+    openclaw_readable = os.path.isfile(openclaw_config_path) and os.access(openclaw_config_path, os.R_OK)
 
-    logger = logging.getLogger("behavior_analyzer")
+    has_valid_key = False
+    if dashscope_key or openai_key or deepseek_key:
+        has_valid_key = True
+    elif openclaw_readable:
+        try:
+            with open(openclaw_config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                if (
+                    cfg.get("dashscope", {}).get("apiKey", "").strip()
+                    or cfg.get("openai", {}).get("apiKey", "").strip()
+                    or cfg.get("deepseek", {}).get("apiKey", "").strip()
+                ):
+                    has_valid_key = True
+        except Exception:
+            pass
 
-    api_key = _get_openai_api_key()
-    if not api_key:
+    if not has_valid_key:
         raise RuntimeError(
-            "未检测到可用的 OpenAI API Key。"
-            "请至少设置以下一项："
-            "1) 环境变量 OPENAI_API_KEY；"
-            "2) 可读的配置文件 ~/.openclaw/openclaw.json。"
+            "配置校验失败：未检测到可用的 AI 接入凭证。\n"
+            "请至少设置以下一项：\n"
+            "  1) 环境变量 DASHSCOPE_API_KEY（推荐，用于通义千问推理）\n"
+            "  2) 环境变量 OPENAI_API_KEY 或 DEEPSEEK_API_KEY\n"
+            "  3) 可读的配置文件 ~/.openclaw/openclaw.json\n"
+            "两者均不可用时，系统无法继续运行。"
         )
-
-    try:
-        from openai import AsyncOpenAI
-    except ImportError as e:
-        logger.warning(
-            "[降级] openai SDK 未安装，无法生成 embedding "
-            f"→ 将跳过语义检索，仅依赖关键词匹配（分析精度会降低）"
-            f"→ 建议：运行 `pip install openai` 后重新执行分析"
-        )
-        return []
-
-    client = AsyncOpenAI(api_key=api_key)
-    try:
-        response = await client.embeddings.create(model=model, input=text)
-        return response.data[0].embedding
-    except Exception as e:
-        logger.warning(
-            "[降级] Embedding API 调用失败（网络或服务端问题）"
-            f"→ 将跳过语义检索，仅依赖关键词匹配（分析精度会降低）"
-            f"→ 建议：检查网络连接与 API Key 有效性后重试"
-        )
-        return []
-
-
-def _cosine_similarity(a: List[float], b: List[float]) -> float:
-    """计算两个向量之间的余弦相似度。
-
-    Args:
-        a: 第一个向量。
-        b: 第二个向量。
-
-    Returns:
-        余弦相似度值，范围 [-1.0, 1.0]；若任一向量为零向量则返回 0.0。
-    """
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(x * x for x in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
 
 
 # ── Knowledge Base Loaders ───────────────────────────────────────
@@ -130,185 +143,6 @@ def _load_json(path: Path) -> Dict[str, Any]:
     """
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
-
-
-# ── Matching Logic ───────────────────────────────────────────────
-
-
-def _match_behavior_tags(description: str, patterns: List[Dict[str, Any]]) -> List[str]:
-    """基于关键词匹配从行为模式库中提取行为标签。
-
-    同时考虑 behavior 字段和 context_hints 字段中的关键词，
-    在描述文本中进行子串匹配。
-
-    Args:
-        description: 用户输入的行为描述。
-        patterns: 行为模式列表。
-
-    Returns:
-        去重后的行为标签列表。
-    """
-    tags: set = set()
-    desc_lower = description.lower()
-
-    for pattern in patterns:
-        behavior_text = pattern.get("behavior", "").lower()
-        hints = [h.lower() for h in pattern.get("context_hints", [])]
-
-        matched = False
-        if behavior_text and behavior_text in desc_lower:
-            matched = True
-        for hint in hints:
-            if hint and hint in desc_lower:
-                matched = True
-                break
-
-        if matched:
-            for tag in pattern.get("tags", []):
-                tags.add(tag)
-
-    return list(tags)
-
-
-def _find_mechanisms(
-    tags: List[str], mechanisms_data: List[Dict[str, Any]]
-) -> List[_PsychologicalMechanism]:
-    """根据行为标签查找对应的心理机制。
-
-    遍历心理机制库，若机制的 name 出现在标签列表中，则纳入结果。
-
-    Args:
-        tags: 已匹配的行为标签。
-        mechanisms_data: 心理机制库数据。
-
-    Returns:
-        匹配到的心理机制列表。
-    """
-    results: List[_PsychologicalMechanism] = []
-    tag_set = set(tags)
-
-    for mech in mechanisms_data:
-        name = mech.get("name", "")
-        if name in tag_set:
-            results.append(
-                _PsychologicalMechanism(
-                    name=name,
-                    explanation=mech.get("description", ""),
-                )
-            )
-
-    return results
-
-
-def _find_alternative_explanations(
-    tags: List[str],
-    rules: List[Dict[str, Any]],
-    query_text: str = "",
-    query_context: Optional[str] = None,
-) -> List[_AlternativeExplanation]:
-    """根据行为标签和场景上下文查找替代解释。
-
-    采用双层过滤策略：
-    1. 标签层：规则的 behavior_tags 与已匹配标签必须有至少 1 个交集。
-    2. 场景层：若规则定义了 context_keywords（非空），则输入文本
-       （behavior_description + context）必须包含至少一个关键词；
-       若 context_keywords 为空数组，则跳过此层过滤（保留通用规则）。
-
-    两层过滤均通过后，该规则的替代解释才被纳入结果。
-    若最终无任何匹配，返回一条通用提示条目。
-
-    Args:
-        tags: 已匹配的行为标签。
-        rules: 替代解释规则列表。
-        query_text: 用户输入的行为描述文本，用于场景关键词匹配。
-        query_context: 用户输入的环境上下文，用于场景关键词匹配。
-
-    Returns:
-        替代解释列表，去重后返回；若无匹配则返回通用条目。
-    """
-    results: List[_AlternativeExplanation] = []
-    seen_perspectives: set = set()
-    tag_set = set(tags)
-
-    full_text = (query_text or "").lower()
-    if query_context:
-        full_text += " " + query_context.lower()
-
-    for rule in rules:
-        # 第一层：标签交集过滤
-        rule_tags = set(rule.get("behavior_tags", []))
-        if not (tag_set & rule_tags):
-            continue
-
-        # 第二层：场景上下文关键词过滤
-        context_keywords = rule.get("context_keywords", [])
-        if context_keywords:
-            keywords_lower = [kw.lower() for kw in context_keywords]
-            if not any(kw in full_text for kw in keywords_lower):
-                continue
-
-        for alt in rule.get("alternatives", []):
-            perspective = alt.get("explanation", "")
-            if perspective and perspective not in seen_perspectives:
-                seen_perspectives.add(perspective)
-                results.append(
-                    _AlternativeExplanation(
-                        perspective=perspective,
-                        reasoning=f"适用场景: {', '.join(alt.get('context', []))}",
-                    )
-                )
-
-    if not results:
-        results.append(
-            _AlternativeExplanation(
-                perspective="信息不足",
-                reasoning="当前行为描述未能匹配到具体的替代解释，建议补充更多上下文或观察更多行为样本后再分析。",
-            )
-        )
-
-    return results
-
-
-def _calculate_confidence(
-    similar_cases: List[Tuple[Dict[str, Any], float]],
-    matched_tags: List[str],
-    mechanisms: List[_PsychologicalMechanism],
-) -> Tuple[float, str]:
-    """基于匹配质量计算置信度和普适性评级。
-
-    综合以下因素：
-    - 相似案例的最高相似度得分
-    - 匹配到的行为标签数量
-    - 识别出的心理机制数量
-
-    Args:
-        similar_cases: (案例, 相似度得分) 列表。
-        matched_tags: 匹配到的行为标签。
-        mechanisms: 识别出的心理机制。
-
-    Returns:
-        (confidence, universality_rating) 元组。
-    """
-    base_confidence = 0.0
-
-    if similar_cases:
-        top_score = similar_cases[0][1]
-        base_confidence = min(top_score * 1.2, 0.6)
-
-    tag_boost = min(len(matched_tags) * 0.08, 0.2)
-    mech_boost = min(len(mechanisms) * 0.1, 0.2)
-
-    confidence = base_confidence + tag_boost + mech_boost
-    confidence = max(0.0, min(1.0, confidence))
-
-    if confidence < 0.5:
-        universality = "低"
-    elif confidence < 0.75:
-        universality = "中"
-    else:
-        universality = "高"
-
-    return confidence, universality
 
 
 # ── Profile Management ───────────────────────────────────────────
@@ -430,8 +264,8 @@ def _get_or_create_profile(subject_id: str, alias: str = "") -> Dict[str, Any]:
     return profile
 
 
-def _generate_pattern_summary(profile: Dict[str, Any]) -> str:
-    """根据 behavior_history 自动生成行为模式摘要文本。
+def _generate_pattern_summary(profile: Dict[str, Any]) -> tuple[str, list[str], list[str]]:
+    """根据 behavior_history 自动生成行为模式摘要文本及重复标签/机制列表。
 
     统计规则：
     1. 取最近 5 条历史记录（不足则取全部）。
@@ -443,13 +277,13 @@ def _generate_pattern_summary(profile: Dict[str, Any]) -> str:
         profile: 用户画像字典，包含 behavior_history 列表。
 
     Returns:
-        生成的摘要字符串。
+        tuple: (summary_text, recurring_tags, recurring_mechanisms)
     """
     from collections import Counter
 
     history = profile.get("behavior_history", [])
     if not history:
-        return ""
+        return "", [], []
 
     recent_history = history[-5:]
 
@@ -475,9 +309,9 @@ def _generate_pattern_summary(profile: Dict[str, Any]) -> str:
         if mechs_text:
             parts.append(f"常见潜在机制包括 {mechs_text}")
         summary = "，".join(parts) + "。需注意这些模式可能受情境因素影响，并非稳定人格特质。"
-        return summary
+        return summary, repeated_tags, repeated_mechs
     else:
-        return "该对象近期行为模式未呈现明显重复规律，建议继续观察积累更多数据。"
+        return "该对象近期行为模式未呈现明显重复规律，建议继续观察积累更多数据。", [], []
 
 
 def _check_boundary_violation(text: str) -> bool:
@@ -566,7 +400,10 @@ def _update_profile(
     if len(history) >= 3:
         existing_summary = profile.get("pattern_summary", "")
         if not isinstance(existing_summary, str) or not existing_summary.strip():
-            profile["pattern_summary"] = _generate_pattern_summary(profile)
+            summary, recurring_tags, recurring_mechanisms = _generate_pattern_summary(profile)
+            profile["pattern_summary"] = summary
+            profile["recurring_tags"] = recurring_tags
+            profile["recurring_mechanisms"] = recurring_mechanisms
 
     profiles[subject_id] = profile
     _save_profiles(data)
@@ -578,7 +415,7 @@ def _update_profile(
 class DefaultBehaviorAnalyzer(BehaviorAnalyzer):
     """默认行为心理分析器实现。
 
-    串联完整工作流：输入解析 → 知识库检索 → 机制匹配 → 结果组装 → 画像更新。
+    基于 LLM 直接推理的工作流：输入解析 → LLM 推理 → 结果组装 → 画像更新。
     """
 
     def __init__(self) -> None:
@@ -586,27 +423,154 @@ class DefaultBehaviorAnalyzer(BehaviorAnalyzer):
 
         执行以下步骤：
         1. 调用 validate_config() 校验配置（API Key 等）。
-        2. 加载 4 个 JSON 知识库到内存。
+        2. 加载知识库到内存。
         """
         validate_config()
 
-        self._cases_data = _load_json(CASES_PATH)
         self._patterns_data = _load_json(PATTERNS_PATH)
         self._mechanisms_data = _load_json(MECHANISMS_PATH)
         self._alternatives_data = _load_json(ALTERNATIVES_PATH)
 
+    # ── Knowledge Base Summaries ─────────────────────────────────
+
+    def _get_patterns_summary(self) -> str:
+        """生成行为标签库的精简摘要，用于 LLM Prompt。"""
+        patterns = self._patterns_data.get("patterns", [])
+        lines: list[str] = []
+        for p in patterns:
+            behavior = p.get("behavior", "")
+            tags = p.get("tags", [])
+            if behavior and tags:
+                lines.append(f"- {behavior} → 标签: {', '.join(tags)}")
+        return "\n".join(lines)
+
+    def _get_mechanisms_summary(self) -> str:
+        """生成心理机制库的精简摘要，用于 LLM Prompt。"""
+        mechanisms = self._mechanisms_data.get("mechanisms", [])
+        lines: list[str] = []
+        for m in mechanisms:
+            name = m.get("name", "")
+            display = m.get("display_name", "")
+            desc = m.get("description", "")
+            if name and desc:
+                lines.append(f"- {name} ({display}): {desc}")
+        return "\n".join(lines)
+
+    # ── LLM Analyze ──────────────────────────────────────────────
+
+    async def _llm_analyze(
+        self, behavior_description: str, context: Optional[str]
+    ) -> dict:
+        """调用 LLM 直接分析行为，返回标签、机制、替代解释。
+
+        Args:
+            behavior_description: 用户输入的行为描述。
+            context: 环境上下文信息。
+
+        Returns:
+            包含 tags、mechanisms、alternative_explanations、confidence、
+            universality_rating 的字典。
+        """
+        import logging
+
+        logger = logging.getLogger("behavior_analyzer")
+
+        # 使用 DeepSeek API（OpenAI 兼容接口）
+        api_key = os.getenv("DEEPSEEK_API_KEY", "")
+        base_url = "https://api.deepseek.com"
+        model = "deepseek-chat"
+
+        if not api_key:
+            logger.warning(
+                "未检测到可用的 DEEPSEEK_API_KEY，无法执行 LLM 分析"
+                "→ 将返回空结果"
+                "→ 建议：设置环境变量 DEEPSEEK_API_KEY"
+            )
+            return {
+                "tags": [],
+                "mechanisms": [],
+                "alternative_explanations": [],
+                "confidence": 0.0,
+                "universality_rating": "低",
+            }
+
+        patterns_summary = self._get_patterns_summary()
+        mechanisms_summary = self._get_mechanisms_summary()
+
+        prompt = f"""你是一个行为心理分析师。根据以下行为描述，识别可能的行为标签、心理机制和替代解释。
+
+## 行为描述
+{behavior_description}
+
+## 环境上下文
+{context or "无"}
+
+## 可用行为标签
+{patterns_summary}
+
+## 可用心理机制
+{mechanisms_summary}
+
+## 输出要求
+严格按以下 JSON 格式输出，不要输出其他内容：
+{{
+  "tags": ["标签1", "标签2"],
+  "mechanisms": [
+    {{"name": "机制名", "explanation": "为什么这个机制可能适用"}}
+  ],
+  "alternative_explanations": [
+    {{"perspective": "替代视角", "reasoning": "推理依据"}}
+  ],
+  "confidence": 0.0,
+  "universality_rating": "高"
+}}
+"""
+
+        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        try:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.3,
+                max_tokens=1200,
+            )
+            content = response.choices[0].message.content or "{}"
+            result = json.loads(content)
+
+            # 规范化输出字段
+            return {
+                "tags": result.get("tags", []),
+                "mechanisms": result.get("mechanisms", []),
+                "alternative_explanations": result.get("alternative_explanations", []),
+                "confidence": float(result.get("confidence", 0.0)),
+                "universality_rating": result.get("universality_rating", "低"),
+            }
+        except Exception as e:
+            logger.warning(
+                f"LLM 分析调用失败（{type(e).__name__}）"
+                f"→ 将返回空结果"
+                f"→ 建议：检查网络连接、API Key 余额与模型可用性后重试"
+            )
+            return {
+                "tags": [],
+                "mechanisms": [],
+                "alternative_explanations": [],
+                "confidence": 0.0,
+                "universality_rating": "低",
+            }
+
+    # ── Main Analyze ─────────────────────────────────────────────
+
     async def analyze(self, request: AnalysisRequest) -> AnalysisResponse:
         """对给定的行为描述请求执行心理分析。
 
-        完整工作流：
+        基于 LLM 直接推理的工作流：
         1. 边界检查：若输入涉及临床诊断/法律判定/危机情况，直接拦截。
-        2. 将 behavior_description 转为向量，检索 cases.json 中的相似案例。
-        3. 用关键词匹配 behavior_patterns.json，提取 behavior tags。
-        4. 根据 tags 查找 psychological_mechanisms.json，获取机制列表。
-        5. 查找 alternative_explanations.json，获取替代解释。
-        6. 基于匹配质量计算 confidence 和 universality_rating。
-        7. 若 subject_id 不为空，更新用户画像。
-        8. 组装并返回 AnalysisResponse（含降级标记与模式摘要）。
+        2. 调用 LLM 直接分析行为描述，获取标签、机制、替代解释。
+        3. 组装 AnalysisResponse。
+        4. 若 subject_id 不为空，更新用户画像。
+        5. 返回结果（含模式摘要）。
 
         Args:
             request: 标准化的分析请求。
@@ -635,86 +599,66 @@ class DefaultBehaviorAnalyzer(BehaviorAnalyzer):
                 degradation_flags=[],
             )
 
-        # 2. 语义检索相似案例
-        similar_cases = await self._search_similar_cases(description)
-        if not similar_cases or all(score == 0.0 for _, score in similar_cases):
-            degradation_flags.append("embedding_degraded")
+        # 2. LLM 直接分析
+        llm_result = await self._llm_analyze(description, request.context)
 
-        # 3. 关键词匹配行为标签
-        matched_tags = _match_behavior_tags(
-            description, self._patterns_data.get("patterns", [])
-        )
-        if not matched_tags:
-            degradation_flags.append("keyword_only")
+        if not llm_result.get("tags"):
+            degradation_flags.append("llm_no_tags")
+        if not llm_result.get("mechanisms"):
+            degradation_flags.append("llm_no_mechanisms")
 
-        if similar_cases:
-            case_tags = similar_cases[0][0].get("behavior_tags", [])
-            for tag in case_tags:
-                if tag not in matched_tags:
-                    matched_tags.append(tag)
+        # 3. 组装结果
+        tags = llm_result.get("tags", [])
 
-        # 4. 查找心理机制
-        mechanisms = _find_mechanisms(
-            matched_tags, self._mechanisms_data.get("mechanisms", [])
-        )
-        if not mechanisms:
-            degradation_flags.append("mechanism_not_found")
+        mechanisms: list[_PsychologicalMechanism] = []
+        for m in llm_result.get("mechanisms", []):
+            if isinstance(m, dict) and m.get("name"):
+                mechanisms.append(
+                    _PsychologicalMechanism(
+                        name=m["name"],
+                        explanation=m.get("explanation", ""),
+                    )
+                )
 
-        # 5. 查找替代解释
-        alternatives = _find_alternative_explanations(
-            matched_tags,
-            self._alternatives_data.get("rules", []),
-            query_text=description,
-            query_context=request.context,
-        )
+        alternatives: list[_AlternativeExplanation] = []
+        for a in llm_result.get("alternative_explanations", []):
+            if isinstance(a, dict) and a.get("perspective"):
+                alternatives.append(
+                    _AlternativeExplanation(
+                        perspective=a["perspective"],
+                        reasoning=a.get("reasoning", ""),
+                    )
+                )
 
-        # 6. 计算置信度与普适性评级
-        confidence, universality = _calculate_confidence(
-            similar_cases, matched_tags, mechanisms
-        )
+        # 若 LLM 未返回替代解释，保底返回一条通用提示
+        if not alternatives:
+            alternatives.append(
+                _AlternativeExplanation(
+                    perspective="信息不足",
+                    reasoning="当前行为描述未能匹配到具体的替代解释，建议补充更多上下文或观察更多行为样本后再分析。",
+                )
+            )
 
-        # 7. 获取历史画像上下文（用于 LLM 增强）
-        history_context = ""
+        confidence = llm_result.get("confidence", 0.0)
+        universality = llm_result.get("universality_rating", "低")
+        if universality not in ("高", "中", "低"):
+            universality = "低"
+
+        # 4. 获取历史画像上下文
         pattern_summary_str: Optional[str] = None
         if request.subject_id:
             profile = _get_or_create_profile(request.subject_id)
             existing_summary = profile.get("pattern_summary", "")
             if isinstance(existing_summary, str) and existing_summary.strip():
-                history_context = existing_summary
                 pattern_summary_str = existing_summary
-            elif profile.get("behavior_history"):
-                recent_tags: set = set()
-                recent_mechs: set = set()
-                for entry in profile["behavior_history"][-3:]:
-                    recent_tags.update(entry.get("tags", []))
-                    recent_mechs.update(entry.get("mechanisms", []))
-                if recent_tags or recent_mechs:
-                    parts: list[str] = []
-                    if recent_tags:
-                        parts.append("近期行为标签：" + ", ".join(recent_tags))
-                    if recent_mechs:
-                        parts.append("近期心理机制：" + ", ".join(recent_mechs))
-                    history_context = "；".join(parts)
 
-        # 8. LLM 深度分析（低置信度或机制缺失时触发）
-        llm_insights = None
-        if confidence < 0.5 or not mechanisms:
-            llm_insights = await self._llm_deep_analysis(
-                behavior_description=description,
-                context=request.context,
-                matched_tags=matched_tags,
-                history_context=history_context,
-            )
-            if llm_insights is None:
-                degradation_flags.append("llm_skipped")
-
-        # 9. 更新用户画像
+        # 5. 更新用户画像
         if request.subject_id:
             _get_or_create_profile(request.subject_id)
             try:
                 _update_profile(
                     request.subject_id,
-                    matched_tags,
+                    tags,
                     mechanisms,
                     confidence,
                     universality,
@@ -723,7 +667,7 @@ class DefaultBehaviorAnalyzer(BehaviorAnalyzer):
             except Exception:
                 import logging
                 logger = logging.getLogger("behavior_analyzer")
-                logger.warning("[降级] 画像更新失败")
+                logger.warning("画像更新失败")
                 degradation_flags.append("profile_update_failed")
 
             # 重新读取画像以获取最新 pattern_summary
@@ -733,177 +677,14 @@ class DefaultBehaviorAnalyzer(BehaviorAnalyzer):
                 pattern_summary_str = existing_summary
 
         return AnalysisResponse(
-            tags=matched_tags,
+            tags=tags,
             psychological_mechanisms=mechanisms,
             alternative_explanations=alternatives,
             confidence=confidence,
             universality_rating=universality,
             subject_id=request.subject_id,
-            llm_insights=llm_insights,
+            llm_insights=None,
             pattern_summary=pattern_summary_str,
             blocked=False,
             degradation_flags=degradation_flags,
         )
-
-    async def _llm_deep_analysis(
-        self,
-        behavior_description: str,
-        context: Optional[str],
-        matched_tags: List[str],
-        history_context: str = "",
-    ) -> Optional[_LLMInsight]:
-        """LLM 语义增强深度分析。
-
-        当置信度低于 0.5 或心理机制为空时自动触发，将行为描述、上下文和
-        已匹配标签作为 prompt 发送给 LLM，获取结构化的深度分析结果。
-
-        若存在历史画像数据，history_context 会被注入 prompt，让 LLM 结合
-        长期行为模式给出更深入的洞察。
-
-        LLM 调用失败时不影响基础流程，仅记录日志并跳过增强。
-
-        Args:
-            behavior_description: 用户输入的行为描述。
-            context: 环境上下文信息。
-            matched_tags: 已匹配的行为标签。
-            history_context: 历史模式摘要文本，可选。
-
-        Returns:
-            _LLMInsight 实例或 None（调用失败时）。
-        """
-        import logging
-
-        logger = logging.getLogger("behavior_analyzer")
-
-        api_key = _get_openai_api_key()
-        if not api_key:
-            logger.warning(
-                "[降级] 未检测到可用的 OpenAI API Key，无法执行 LLM 深度分析"
-                "→ 将返回知识库基础分析结果（置信度可能较低、缺少语义增强）"
-                "→ 建议：设置环境变量 OPENAI_API_KEY 或在 ~/.openclaw/openclaw.json 中配置 apiKey"
-            )
-            return None
-
-        try:
-            from openai import AsyncOpenAI
-        except ImportError as e:
-            logger.warning(
-                "[降级] openai SDK 未安装，无法执行 LLM 深度分析"
-                "→ 将返回知识库基础分析结果（置信度可能较低、缺少语义增强）"
-                "→ 建议：运行 `pip install openai` 后重新执行分析"
-            )
-            return None
-
-        prompt = self._build_llm_prompt(behavior_description, context, matched_tags, history_context)
-
-        client = AsyncOpenAI(api_key=api_key)
-        try:
-            response = await client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "你是一位专业的心理学分析助手。"
-                            "请根据用户提供的行为描述，从心理学角度进行深度分析。"
-                            "你必须以 JSON 格式返回结果，不要包含任何其他文本。"
-                        ),
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3,
-                max_tokens=800,
-            )
-            content = response.choices[0].message.content or "{}"
-            result = json.loads(content)
-            return _LLMInsight(
-                mechanisms=result.get("mechanisms", []),
-                biases_or_factors=result.get("biases_or_factors", []),
-                observation_suggestions=result.get("observation_suggestions", []),
-            )
-        except Exception as e:
-            logger.warning(
-                f"[降级] LLM 深度分析调用失败（{type(e).__name__}）"
-                f"→ 将返回知识库基础分析结果（置信度可能较低、缺少语义增强）"
-                f"→ 建议：检查网络连接、API Key 余额与模型可用性后重试"
-            )
-            return None
-
-    def _build_llm_prompt(
-        self,
-        behavior_description: str,
-        context: Optional[str],
-        matched_tags: List[str],
-        history_context: str = "",
-    ) -> str:
-        """构建 LLM 深度分析的 prompt。
-
-        Args:
-            behavior_description: 行为描述。
-            context: 环境上下文。
-            matched_tags: 已匹配标签。
-            history_context: 历史模式摘要文本，可选。
-
-        Returns:
-            格式化后的 prompt 字符串。
-        """
-        lines = [
-            "请对以下行为进行心理学深度分析：",
-            "",
-            f"行为描述：{behavior_description}",
-        ]
-        if context:
-            lines.append(f"上下文：{context}")
-        if matched_tags:
-            lines.append(f"已匹配的行为标签：{', '.join(matched_tags)}")
-        if history_context:
-            lines.append(f"历史行为模式：{history_context}")
-        lines.extend([
-            "",
-            "请返回以下 JSON 格式的分析结果（仅返回 JSON，不要其他内容）：",
-            "{",
-            '  "mechanisms": ["机制1", "机制2"],',
-            '  "biases_or_factors": ["偏差/因素1", "偏差/因素2"],',
-            '  "observation_suggestions": ["建议1", "建议2"]',
-            "}",
-        ])
-        return "\n".join(lines)
-
-    async def _search_similar_cases(
-        self, query_text: str, top_k: int = 3
-    ) -> List[Tuple[Dict[str, Any], float]]:
-        """检索与查询文本语义相似的案例。
-
-        先为查询文本生成 embedding，再与案例库中的 embedding 计算余弦相似度，
-        返回得分最高的 top_k 个案例。
-
-        Args:
-            query_text: 查询文本（行为描述）。
-            top_k: 返回的最大案例数量。
-                设计依据：返回 top-3 案例在覆盖度与信噪比之间取得平衡。
-                少于 3 可能遗漏相关案例，多于 3 可能引入噪声降低匹配置信度。
-
-        Returns:
-            (案例字典, 相似度得分) 列表，按得分降序排列。
-        """
-        cases = self._cases_data.get("cases", [])
-        if not cases:
-            return []
-
-        try:
-            query_emb = await _get_embedding(query_text)
-        except RuntimeError:
-            query_emb = []
-
-        results: List[Tuple[Dict[str, Any], float]] = []
-        for case in cases:
-            case_emb = case.get("embedding", [])
-            if query_emb and case_emb:
-                score = _cosine_similarity(query_emb, case_emb)
-            else:
-                score = 0.0
-            results.append((case, score))
-
-        results.sort(key=lambda x: x[1], reverse=True)
-        return results[:top_k]

@@ -1,222 +1,185 @@
-"""
-命令行入口模块：提供简易 CLI 用于本地测试 DefaultBehaviorAnalyzer。
+"""命令行入口。"""
 
-用法示例：
-    python -m src.cli --behavior "同事总是最后一个回复我的消息" --subject colleague_A --context "工作群聊"
-    python -m src.cli profile --subject colleague_A
-"""
+from __future__ import annotations
 
 import argparse
 import asyncio
 import json
 import sys
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+import uuid
+from typing import Any, Optional
 
-from src.analyzer import DefaultBehaviorAnalyzer, _load_profiles
-from src.schemas import AnalysisRequest
+from src.analyzer import DefaultBehaviorAnalyzer
+from src.profile_store import ProfileStore
+from src.schemas import AnalysisRequest, AnalysisResponse
 
 
-def _format_response_markdown(response) -> str:
-    """将 AnalysisResponse 格式化为 Markdown 文本。
+def _format_response_markdown(response: AnalysisResponse) -> str:
+    lines = ["# 行为假设分析结果", ""]
+    if response.blocked:
+        lines.extend(
+            [
+                f"**安全边界**：{response.safety_category or 'boundary'}",
+                "",
+                response.alternative_explanations[0].reasoning,
+                "",
+                f"> {response.disclaimer}",
+            ]
+        )
+        return "\n".join(lines)
 
-    Args:
-        response: AnalysisResponse 实例。
-
-    Returns:
-        格式化的 Markdown 字符串。
-    """
-    lines = [
-        "# 行为心理分析结果",
-        "",
-        f"**分析对象**: {response.subject_id or '（未指定）'}",
-        f"**置信度**: {response.confidence:.2f}",
-        f"**普适性评级**: {response.universality_rating}",
-        "",
-        "## 行为标签",
-    ]
-
-    if response.tags:
-        for tag in response.tags:
-            lines.append(f"- `{tag}`")
-    else:
-        lines.append("- 未匹配到显著行为标签")
-
-    lines.extend(["", "## 心理机制"])
+    lines.extend(
+        [
+            f"**模型估计置信度**：{response.confidence:.2f}（未经统计校准）",
+            f"**普适性评级**：{response.universality_rating}",
+            "",
+            "## 行为标签",
+        ]
+    )
+    lines.extend([f"- `{tag}`" for tag in response.tags] or ["- 未生成可靠标签"])
+    lines.extend(["", "## 可能的心理机制"])
     if response.psychological_mechanisms:
-        for mech in response.psychological_mechanisms:
-            lines.append(f"- **{mech.name}**: {mech.explanation}")
+        for mechanism in response.psychological_mechanisms:
+            lines.append(
+                f"- **{mechanism.name}**（{mechanism.universality_rating}，"
+                f"模型估计 {mechanism.confidence:.2f}）：{mechanism.explanation}"
+            )
     else:
-        lines.append("- 未识别出明确的心理机制")
-
+        lines.append("- 未生成可靠机制")
     lines.extend(["", "## 替代解释"])
-    if response.alternative_explanations:
-        for idx, alt in enumerate(response.alternative_explanations, 1):
-            lines.append(f"{idx}. **{alt.perspective}**")
-            lines.append(f"   - {alt.reasoning}")
-    else:
-        lines.append("- 未找到匹配的替代解释")
-
+    for index, alternative in enumerate(response.alternative_explanations, 1):
+        lines.append(f"{index}. **{alternative.perspective}**：{alternative.reasoning}")
+    lines.extend(["", "## 局限"])
+    lines.extend(f"- {item}" for item in response.limitations)
+    if response.pattern_summary:
+        lines.extend(["", "## 已同意保存的画像摘要", response.pattern_summary])
+    if response.subject_id:
+        status = "已保存" if response.profile_persisted else "未新增记录"
+        lines.extend(["", f"**匿名对象 ID**：`{response.subject_id}`；画像状态：{status}"])
+    if response.degradation_flags:
+        lines.extend(["", f"**降级标记**：{', '.join(response.degradation_flags)}"])
     lines.extend(["", "---", "", f"> {response.disclaimer}"])
-
     return "\n".join(lines)
 
 
-async def _run_analysis(
-    behavior: str,
-    subject: Optional[str],
-    context: Optional[str],
-) -> None:
-    """执行分析并打印结果。
-
-    Args:
-        behavior: 行为描述文本。
-        subject: 分析对象 ID（可选）。
-        context: 环境上下文（可选）。
-    """
+async def _run_analysis(args: argparse.Namespace) -> None:
     analyzer = DefaultBehaviorAnalyzer()
-    request = AnalysisRequest(
-        behavior_description=behavior,
-        subject_id=subject,
-        context=context,
+    try:
+        request_id = args.request_id
+        if args.save_profile and not request_id:
+            request_id = str(uuid.uuid4())
+        request = AnalysisRequest(
+            behavior_description=args.behavior,
+            subject_id=args.subject,
+            context=args.context,
+            request_id=request_id,
+            persist_profile=args.save_profile,
+        )
+        response = await analyzer.analyze(request)
+        if args.json:
+            print(response.model_dump_json(indent=2))
+        else:
+            print(_format_response_markdown(response))
+    finally:
+        await analyzer.close()
+
+
+def _format_profile_markdown(subject_id: str, profile: dict[str, Any]) -> str:
+    lines = [f"# 本地画像：{subject_id}", "", "> 仅包含用户曾显式同意保存的观察。", ""]
+    lines.extend(
+        [
+            f"- **创建时间**：{profile.get('created_at', '未知')}",
+            f"- **更新时间**：{profile.get('updated_at', '未知')}",
+            f"- **记录数**：{len(profile.get('behavior_history', []))}",
+        ]
     )
-    response = await analyzer.analyze(request)
-    print(_format_response_markdown(response))
-
-
-def _format_profile_markdown(subject_id: str, profile: Dict[str, Any]) -> str:
-    """将画像数据格式化为 Markdown 文本。
-
-    Args:
-        subject_id: 对象标识。
-        profile: 画像字典。
-
-    Returns:
-        格式化的 Markdown 字符串。
-    """
-    lines: List[str] = [
-        f"# 人物画像：{subject_id}",
-        "",
-        "## 基本信息",
-        "",
-    ]
-
-    alias = profile.get("alias", "")
-    created_at = profile.get("created_at", "")
-    updated_at = profile.get("updated_at", "")
-
-    lines.append(f"- **称呼**：{alias or '（未设置）'}")
-    lines.append(f"- **首次记录**：{created_at or '（未知）'}")
-    lines.append(f"- **最近更新**：{updated_at or '（未知）'}")
-
-    pattern_summary = profile.get("pattern_summary", "")
-    recurring_tags = profile.get("recurring_tags", [])
-    recurring_mechanisms = profile.get("recurring_mechanisms", [])
-    if pattern_summary or recurring_tags or recurring_mechanisms:
-        lines.extend(["", "## 模式摘要"])
-        if pattern_summary:
-            lines.append(f"> {pattern_summary}")
-        if recurring_tags:
-            lines.append(f"- **高频标签**：{', '.join(recurring_tags)}")
-        if recurring_mechanisms:
-            lines.append(f"- **重复机制**：{', '.join(recurring_mechanisms)}")
-        if not pattern_summary and not recurring_tags and not recurring_mechanisms:
-            lines.append("- 暂无足够数据生成模式摘要")
-
-    behavior_history = profile.get("behavior_history", [])
-    lines.extend(["", "## 行为历史"])
-    if behavior_history:
-        lines.append("| 时间 | 行为描述 | 标签 | 机制 | 置信度 | 普适性 |")
-        lines.append("|------|----------|------|------|--------|--------|")
-        for entry in behavior_history:
-            ts = entry.get("timestamp", "")
-            desc = entry.get("behavior_description", "")[:40]
-            tags = ", ".join(entry.get("tags", []))[:30]
-            mechs = ", ".join(entry.get("mechanisms", []))[:30]
-            conf = entry.get("confidence", 0.0)
-            univ = entry.get("universality_rating", "")
-            lines.append(f"| {ts} | {desc} | {tags} | {mechs} | {conf:.2f} | {univ} |")
-    else:
-        lines.append("- 暂无行为记录")
-
-    lines.append("")
+    if profile.get("pattern_summary"):
+        lines.extend(["", "## 摘要", profile["pattern_summary"]])
+    lines.extend(["", "## 历史记录"])
+    for entry in profile.get("behavior_history", []):
+        lines.extend(
+            [
+                f"- `{entry.get('request_id', 'legacy')}` · {entry.get('timestamp', '')}",
+                f"  - 行为：{entry.get('behavior_description', '')}",
+                f"  - 标签：{', '.join(entry.get('tags', [])) or '无'}",
+            ]
+        )
+    if not profile.get("behavior_history"):
+        lines.append("- 暂无记录")
     return "\n".join(lines)
 
 
-def _run_profile(subject: str) -> None:
-    """查询并输出指定对象的画像。
-
-    Args:
-        subject: 分析对象 ID。
-    """
-    from src.analyzer import _ensure_profile_structure
-
-    data = _load_profiles()
-    profiles = data.get("profiles", {})
-    if subject not in profiles:
-        print(f"未找到 ID 为 `{subject}` 的画像记录。", file=sys.stderr)
-        sys.exit(1)
-
-    profile = _ensure_profile_structure(profiles[subject])
-    print(_format_profile_markdown(subject, profile))
+def _profile_or_exit(store: ProfileStore, subject: str) -> dict[str, Any]:
+    profile = store.get(subject)
+    if profile is None:
+        raise RuntimeError(f"未找到匿名对象 ID {subject!r} 的画像。")
+    return profile
 
 
-def main() -> None:
-    """CLI 主入口函数。
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="行为假设分析 CLI（非诊断工具）")
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    解析命令行参数，调用分析器，以 Markdown 格式输出结果。
-    """
-    parser = argparse.ArgumentParser(
-        description="行为心理分析 CLI — 基于知识库与 RAG 的行为动机推测工具"
-    )
-    subparsers = parser.add_subparsers(dest="command", help="可用子命令")
-
-    analyze_parser = subparsers.add_parser("analyze", help="执行行为心理分析")
+    analyze_parser = subparsers.add_parser("analyze", help="分析一段可观察行为")
+    analyze_parser.add_argument("--behavior", required=True, help="可观察到的行为描述")
+    analyze_parser.add_argument("--context", default=None, help="已脱敏的情境信息")
+    analyze_parser.add_argument("--subject", default=None, help="匿名对象 ID")
+    analyze_parser.add_argument("--request-id", default=None, help="稳定请求 ID，用于幂等")
     analyze_parser.add_argument(
-        "--behavior",
-        required=True,
-        help="用户观察到的行为描述（必填）",
+        "--save-profile",
+        action="store_true",
+        help="明确同意把本次观察保存到本机画像；必须同时提供 --subject",
     )
-    analyze_parser.add_argument(
-        "--subject",
-        default=None,
-        help="被分析对象的历史人物 ID，用于画像追踪（例如 colleague_A、friend_X）",
-    )
-    analyze_parser.add_argument(
-        "--context",
-        default=None,
-        help="环境上下文信息，包括时间、地点、触发事件等",
-    )
+    analyze_parser.add_argument("--json", action="store_true", help="输出 JSON")
 
-    profile_parser = subparsers.add_parser("profile", help="查询人物画像")
-    profile_parser.add_argument(
-        "--subject",
-        required=True,
-        help="被查询对象的历史人物 ID",
-    )
+    profile_parser = subparsers.add_parser("profile", help="查看本地画像")
+    profile_parser.add_argument("--subject", required=True)
+    profile_parser.add_argument("--json", action="store_true")
 
-    args = parser.parse_args()
+    export_parser = subparsers.add_parser("export-profile", help="导出本地画像 JSON")
+    export_parser.add_argument("--subject", required=True)
 
-    if args.command == "profile":
-        try:
-            _run_profile(args.subject)
-        except Exception as e:
-            print(f"未知错误: {e}", file=sys.stderr)
-            sys.exit(1)
-        return
+    forget_parser = subparsers.add_parser("forget-entry", help="按 request_id 删除一条画像记录")
+    forget_parser.add_argument("--subject", required=True)
+    forget_parser.add_argument("--request-id", required=True)
+    forget_parser.add_argument("--yes", action="store_true", help="确认删除")
 
-    if args.command == "analyze" or args.command is None:
-        try:
-            asyncio.run(_run_analysis(args.behavior, args.subject, args.context))
-        except RuntimeError as e:
-            print(f"错误: {e}", file=sys.stderr)
-            sys.exit(1)
-        except Exception as e:
-            print(f"未知错误: {e}", file=sys.stderr)
-            sys.exit(1)
-        return
+    delete_parser = subparsers.add_parser("delete-profile", help="删除一个本地画像")
+    delete_parser.add_argument("--subject", required=True)
+    delete_parser.add_argument("--yes", action="store_true", help="确认删除")
+    return parser
 
-    parser.print_help()
+
+def main(argv: Optional[list[str]] = None) -> None:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "analyze":
+            asyncio.run(_run_analysis(args))
+            return
+
+        store = ProfileStore()
+        if args.command in {"profile", "export-profile"}:
+            profile = _profile_or_exit(store, args.subject)
+            if args.command == "export-profile" or args.json:
+                print(json.dumps(profile, ensure_ascii=False, indent=2))
+            else:
+                print(_format_profile_markdown(args.subject, profile))
+            return
+
+        if not args.yes:
+            raise RuntimeError("删除操作需要显式传入 --yes。")
+        if args.command == "forget-entry":
+            changed = store.forget_entry(args.subject, args.request_id)
+            print("已删除指定记录。" if changed else "未找到指定记录。")
+            return
+        if args.command == "delete-profile":
+            changed = store.delete(args.subject)
+            print("已删除画像。" if changed else "未找到画像。")
+            return
+    except Exception as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":

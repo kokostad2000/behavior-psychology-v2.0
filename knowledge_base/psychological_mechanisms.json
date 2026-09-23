@@ -1,168 +1,124 @@
 {
-  "version": "1.0",
-  "description": "心理机制库 - 行为背后的心理机制、普适性分级、科学解释",
+  "version": "2.1",
+  "description": "用于提出可证伪候选解释的机制索引。文献仅是概念来源线索；未经过系统综述、临床验证或针对本工具的效果校准，不能支持对个体的确定性推断。",
+  "universality_definition": "high/medium/low 仅描述概念在一般研究中的适用范围，不表示该机制对当前个体成立的概率。",
   "mechanisms": [
     {
-      "name": "ego_defense",
-      "display_name": "自我防御机制",
-      "description": "当自我形象受到威胁时，心理系统启动的自我保护反应",
-      "universality": "high",
-      "scientific_basis": "Freudian psychoanalysis / modern cognitive psychology",
-      "examples": ["被批评后攻击", "过度解释", "否认错误"],
-      "alternative_triggers": ["短期工作压力", "社交竞争", "评价焦虑"]
-    },
-    {
-      "name": "cognitive_dissonance",
-      "display_name": "认知失调",
-      "description": "当行为与自我认知不一致时，产生的心理不适感及缓解行为",
-      "universality": "high",
-      "scientific_basis": "Festinger, 1957",
-      "examples": ["做了违背价值观的事后的合理化", "购买后的辩护", "信念与行为冲突"],
-      "alternative_triggers": ["信息过载", "价值观冲突", "环境压力"]
-    },
-    {
-      "name": "loss_aversion",
-      "display_name": "损失厌恶",
-      "description": "人们对损失的敏感度远高于对等量收益的敏感度",
-      "universality": "high",
-      "scientific_basis": "Kahneman & Tversky, Prospect Theory, 1979",
-      "examples": ["害怕结束关系", "不愿放弃沉没成本", "过度保守"],
-      "alternative_triggers": ["资源稀缺", "安全感需求", "风险控制偏好"]
-    },
-    {
-      "name": "social_identity",
-      "display_name": "社会认同理论",
-      "description": "个体通过群体成员身份获得自我认同，对内群体偏袒、对外群体排斥",
-      "universality": "high",
-      "scientific_basis": "Tajfel & Turner, 1979",
-      "examples": ["小圈子排斥外人", "品牌忠诚度", "群体极化"],
-      "alternative_triggers": ["归属感需求", "安全感", "价值观一致"]
-    },
-    {
-      "name": "attachment_style_anxious",
-      "display_name": "焦虑型依恋",
-      "description": "对亲密关系过度担忧被抛弃，需要频繁确认对方在乎自己",
+      "name": "situational_stress",
+      "display_name": "情境压力负荷",
+      "description": "任务压力、时间压力或多重要求可能暂时改变沟通和情绪表达。",
       "universality": "medium",
-      "scientific_basis": "Bowlby, Ainsworth attachment theory",
-      "examples": ["频繁确认对方心意", "害怕独处", "过度依赖"],
-      "alternative_triggers": ["童年经历", "前任创伤", "自我价值感低"]
+      "scientific_basis": "Lazarus and Folkman, Stress, Appraisal, and Coping, 1984; concept pointer only",
+      "examples": ["截止期前回复变短", "多任务期间回复延迟"],
+      "counterevidence": ["行为在低压力情境中同样稳定出现", "压力变化与行为没有同步关系"]
     },
     {
-      "name": "attachment_style_avoidant",
-      "display_name": "回避型依恋",
-      "description": "在亲密关系中回避情感亲近，用距离保护自己",
+      "name": "self_image_protection",
+      "display_name": "自我形象保护",
+      "description": "受到评价或质疑时，人可能通过解释、反驳或强调资历来维护当下的自我评价。",
       "universality": "medium",
-      "scientific_basis": "Bowlby, Ainsworth attachment theory",
-      "examples": ["已读不回", "回避深入话题", "突然冷淡"],
-      "alternative_triggers": ["个人空间需求", "情感疲劳", "独立性偏好"]
+      "scientific_basis": "Steele, The Psychology of Self-Affirmation, 1988; concept pointer only",
+      "examples": ["被质疑后反复解释", "被评价时强调资历"],
+      "counterevidence": ["补充信息后能平静修正", "解释内容主要是纠正事实错误"]
     },
     {
-      "name": "people_pleasing",
-      "display_name": "讨好行为",
-      "description": "通过满足他人需求来获得认可，压抑自己的真实需求",
-      "universality": "medium",
-      "scientific_basis": "Codependency / Self-determination theory",
-      "examples": ["不敢拒绝", "过度道歉", "总是说随便"],
-      "alternative_triggers": ["文化背景", "职业需求", "性格温和"]
-    },
-    {
-      "name": "emotional_regulation",
-      "display_name": "情绪调节",
-      "description": "管理和应对情绪反应的策略，包括压抑、转移、回避等",
+      "name": "clarification_need",
+      "display_name": "澄清需要",
+      "description": "信息不一致、表达含糊或担心被误解时，可能出现重复解释和确认。",
       "universality": "high",
-      "scientific_basis": "Gross, 1998 / Emotion regulation theory",
-      "examples": ["沉默", "转移话题", "突然冷淡", "过度工作"],
-      "alternative_triggers": ["疲劳", "情绪管理能力差异", "环境支持度"]
+      "scientific_basis": "Clark and Brennan, Grounding in Communication, 1991; concept pointer only",
+      "examples": ["重复说明同一事实", "追问对方是否理解"],
+      "counterevidence": ["对方已准确复述后仍无关地重复", "重复内容与澄清无关"]
     },
     {
-      "name": "catastrophizing",
-      "display_name": "灾难化思维",
-      "description": "将负面事件放大到灾难性后果的倾向",
+      "name": "conflict_deescalation",
+      "display_name": "冲突降级策略",
+      "description": "沉默、暂停或转移话题有时是降低互动强度的临时策略。",
       "universality": "medium",
-      "scientific_basis": "CBT / Cognitive psychology",
-      "examples": ["一次失败=人生完了", "不回消息=关系破裂"],
-      "alternative_triggers": ["过往创伤", "焦虑症倾向", "信息不全"]
+      "scientific_basis": "Gross, The Emerging Field of Emotion Regulation, 1998; adjacent concept pointer only",
+      "examples": ["争论时暂停回应", "在高强度话题后转移话题"],
+      "counterevidence": ["转移话题同时伴随持续升级", "当事人明确说明了其他原因"]
     },
     {
-      "name": "projection",
-      "display_name": "投射",
-      "description": "将自己不愿承认的特质或情绪归因于他人",
+      "name": "emotion_regulation_strategy",
+      "display_name": "情绪调节策略",
+      "description": "减少输入、暂停对话或改变表达方式可能是应对当下情绪的策略之一。",
+      "universality": "high",
+      "scientific_basis": "Gross, Review of General Psychology 2(3), 1998; concept pointer only",
+      "examples": ["暂停对话", "情绪升高时减少发言"],
+      "counterevidence": ["行为与情绪强度无关", "当事人给出可核实的技术或日程原因"]
+    },
+    {
+      "name": "boundary_management",
+      "display_name": "互动边界管理",
+      "description": "联系频率、回复长度和信息分享量的变化，可能反映对互动范围的调整。",
       "universality": "medium",
-      "scientific_basis": "Freudian defense mechanism",
-      "examples": [" cheating的人怀疑伴侣", "自己懒惰说别人懒"],
-      "alternative_triggers": ["自我认知盲区", "道德标准差异", "误解"]
+      "scientific_basis": "Interpersonal boundary literature; broad concept pointer only",
+      "examples": ["减少联系频率", "对某类话题不再回应"],
+      "counterevidence": ["变化完全由日程或设备问题解释", "当事人明确希望维持原有互动"]
     },
     {
-      "name": "fundamental_attribution_error",
-      "display_name": "基本归因错误",
-      "description": "倾向于将他人行为归因于其性格而非情境因素",
+      "name": "attention_allocation",
+      "display_name": "注意资源分配",
+      "description": "有限注意资源在任务、关系和环境提示之间的分配不同，可能造成回复和参与差异。",
       "universality": "high",
-      "scientific_basis": "Ross, 1977",
-      "examples": ["他迟到=不靠谱", "我迟到=堵车"],
-      "alternative_triggers": ["信息不完整", "社会认知偏差", "文化差异"]
+      "scientific_basis": "Kahneman, Attention and Effort, 1973; concept pointer only",
+      "examples": ["忙碌时回复延迟", "多人对话中漏看消息"],
+      "counterevidence": ["注意条件相同但行为只对特定对象出现", "当事人说明并非注意分配问题"]
     },
     {
-      "name": "boundary_setting",
-      "display_name": "边界设定",
-      "description": "通过行为建立个人空间和心理距离的健康机制",
-      "universality": "high",
-      "scientific_basis": "Self-determination theory / Interpersonal theory",
-      "examples": ["已读不回", "拒绝邀请", "突然冷淡"],
-      "alternative_triggers": ["个人空间需求", "能量管理", "自我保护"]
-    },
-    {
-      "name": "burnout",
-      "display_name": "倦怠",
-      "description": "长期压力导致的身心耗竭状态",
-      "universality": "high",
-      "scientific_basis": "Maslach Burnout Inventory, 1981",
-      "examples": ["突然冷淡", "回避社交", "效率下降"],
-      "alternative_triggers": ["工作负荷", "长期压力", "缺乏恢复"]
-    },
-    {
-      "name": "control",
-      "display_name": "控制欲",
-      "description": "通过支配他人或环境来获得确定感和安全感的心理倾向",
+      "name": "relationship_uncertainty",
+      "display_name": "关系不确定性",
+      "description": "对关系状态或互动预期不清楚时，可能增加确认和联系行为。",
       "universality": "medium",
-      "scientific_basis": "Self-determination theory / Control theory",
-      "examples": ["频繁查岗", "干涉决策", "要求报备行踪", "主导对话节奏"],
-      "alternative_triggers": ["焦虑型依恋", "过往失控经历", "高不确定性环境"]
+      "scientific_basis": "Berger and Calabrese, Uncertainty Reduction Theory, 1975; interpersonal application pointer only",
+      "examples": ["关系变化后增加确认", "约定不清时频繁询问"],
+      "counterevidence": ["双方已有清晰一致的沟通约定", "询问是明确的工作职责要求"]
     },
     {
-      "name": "anxiety",
-      "display_name": "焦虑反应",
-      "description": "对潜在威胁的过度警觉和担忧，驱动回避或控制行为",
-      "universality": "high",
-      "scientific_basis": "Beck's cognitive model of anxiety / Spielberger state-trait anxiety",
-      "examples": ["反复确认", "过度准备", "灾难化预期", "回避风险"],
-      "alternative_triggers": ["生理因素", "生活压力事件", "信息不完整"]
-    },
-    {
-      "name": "impatience",
-      "display_name": "耐心缺乏",
-      "description": "对延迟和等待的低容忍度，倾向于追求即时满足或快速结果",
+      "name": "uncertainty_reduction",
+      "display_name": "不确定性降低",
+      "description": "在信息不足时，人可能通过追问、同步状态或控制流程来增加可预测性。",
       "universality": "medium",
-      "scientific_basis": "Delay discounting theory / Temporal motivation theory",
-      "examples": ["打断他人", "催促决策", "频繁切换任务", "过早下结论"],
-      "alternative_triggers": ["时间压力", "高成就动机", "多巴胺寻求倾向"]
+      "scientific_basis": "Berger and Calabrese, Human Communication Research 1(2), 1975; concept pointer only",
+      "examples": ["反复确认进度", "频繁询问当前状态"],
+      "counterevidence": ["已有充分信息仍继续无关追问", "行为来自正式流程而非个人需要"]
     },
     {
-      "name": "dominance_display",
-      "display_name": "权力展示",
-      "description": "通过行为或言语彰显地位、权威或优越性，以维护社会等级",
+      "name": "decision_fatigue",
+      "display_name": "决策负荷假设",
+      "description": "连续做决定或资源不足时，可能把低重要度选择交给他人。",
+      "universality": "low",
+      "scientific_basis": "Decision fatigue literature; mixed evidence, hypothesis only",
+      "examples": ["忙碌后频繁回答都可以", "把次要选择交给同伴"],
+      "counterevidence": ["在精力充足时也稳定不表达偏好", "当事人明确表示确实没有偏好"]
+    },
+    {
+      "name": "social_comparison",
+      "display_name": "社会比较情境",
+      "description": "相似角色之间的比较可能影响对他人成就的注意和表达，但不能据此推断嫉妒。",
       "universality": "medium",
-      "scientific_basis": "Social dominance theory / Evolutionary psychology",
-      "examples": ["打断他人发言", "贬低他人贡献", "占据物理空间", "控制会议节奏"],
-      "alternative_triggers": ["地位威胁", "竞争环境", "组织文化鼓励"]
+      "scientific_basis": "Festinger, Human Relations 7, 1954; concept pointer only",
+      "examples": ["资源竞争中回应变少", "同类目标下关注差异"],
+      "counterevidence": ["对方一贯使用低情绪表达方式", "未回应可由时间或信息遗漏解释"]
     },
     {
-      "name": "low_priority",
-      "display_name": "优先级感知差异",
-      "description": "个体对关系或任务重要性的排序差异，导致投入程度不对等",
+      "name": "role_or_norm_expectation",
+      "display_name": "角色或规范预期",
+      "description": "职位职责、团队规则或沟通文化可能塑造打断、追问、回复节奏等行为。",
+      "universality": "medium",
+      "scientific_basis": "Social role and norm research; broad concept pointer only",
+      "examples": ["主持人控制发言顺序", "值班人员频繁确认状态"],
+      "counterevidence": ["相同角色中的其他人并无此行为", "行为发生在角色职责之外"]
+    },
+    {
+      "name": "attribution_bias_check",
+      "display_name": "情境归因校正",
+      "description": "观察者容易低估情境约束；该机制用于提醒分析者检查其他外部原因，而不是给被观察者贴标签。",
       "universality": "high",
-      "scientific_basis": "Interdependence theory / Equity theory",
-      "examples": ["回复消息延迟", "回避深度沟通", "资源分配不均", "情感投入不对等"],
-      "alternative_triggers": ["多重角色冲突", "认知资源有限", "价值观差异"]
+      "scientific_basis": "Ross, Advances in Experimental Social Psychology 10, 1977; concept pointer only",
+      "examples": ["先检查日程、设备和角色限制", "区分一次行为与长期模式"],
+      "counterevidence": ["已有跨情境、长期且多来源的独立观察"]
     }
   ]
 }

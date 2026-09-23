@@ -1,261 +1,234 @@
-"""
-MCP Server 适配层：通过 stdio 提供 JSON-RPC 2.0 接口，
-将 DefaultBehaviorAnalyzer 暴露为 MCP Tool。
+"""MCP stdio 适配层（JSON-RPC 2.0，换行分帧）。"""
 
-传输方式：stdin/stdout（JSON-RPC 2.0 over stdio）
-兼容客户端：Claude Desktop、Cursor 等支持 MCP stdio 的客户端
-"""
+from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import sys
-import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from src.analyzer import DefaultBehaviorAnalyzer
-from src.schemas import AnalysisRequest, validate_config
+from src.config import RuntimeConfig, validate_config
+from src.interfaces import BehaviorAnalyzer
+from src.schemas import AnalysisRequest
 
-# ── 日志配置 ──────────────────────────────────────────────────────
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] %(levelname)s: %(message)s",
-    stream=sys.stderr,
-)
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s", stream=sys.stderr)
 logger = logging.getLogger("mcp_server")
 
-# ── MCP 常量 ──────────────────────────────────────────────────────
-
 SERVER_NAME = "behavior-psychology-mcp-server"
-SERVER_VERSION = "1.0.0"
+SERVER_VERSION = "2.1.0"
+SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
+MAX_MESSAGE_BYTES = 1_048_576
 
-# 工具定义（复用 Function Calling JSON Schema）
 TOOL_DEFINITION = {
     "name": "analyzing-behavior",
     "description": (
-        "分析用户描述的行为或社交互动，识别可能的心理机制、认知模式与社会因素。"
-        "提供结构化分析报告，包含替代解释、普适性评级与置信度分数。"
-        "适用于'帮我分析一下...'、'为什么TA会...'、'你怎么看这件事...'等场景。"
-        "明确不是诊断工具，不输出人格障碍或临床标签。"
+        "根据有限的行为描述整理多种非诊断假设。不会判断人格、疾病或真实动机；"
+        "默认不保存人物画像。"
     ),
     "inputSchema": {
         "type": "object",
+        "additionalProperties": False,
         "properties": {
-            "behavior_description": {
-                "type": "string",
-                "description": "用户描述的行为文本，包含观察到的具体行为、言语或社交互动场景。必填。",
-            },
+            "behavior_description": {"type": "string", "minLength": 2, "maxLength": 4000},
             "subject_id": {
                 "type": "string",
-                "description": "被分析对象的历史人物 ID，用于长期追踪与画像关联（例如 colleague_A、friend_X）。可选。",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "description": "匿名对象 ID；仅在 persist_profile=true 时用于本机画像。",
             },
-            "context": {
-                "type": "string",
-                "description": "环境上下文信息，包括时间、地点、触发事件、在场人员、关系背景等。可选。",
-            },
-            "request_id": {
-                "type": "string",
-                "description": "请求追踪 ID，用于链路追踪、日志关联与幂等性控制。可选。",
+            "context": {"type": "string", "maxLength": 4000, "description": "已脱敏的情境信息。"},
+            "request_id": {"type": "string", "minLength": 1, "maxLength": 128},
+            "persist_profile": {
+                "type": "boolean",
+                "default": False,
+                "description": "显式同意保存本次观察；默认 false。",
             },
         },
         "required": ["behavior_description"],
+        "allOf": [
+            {
+                "if": {"properties": {"persist_profile": {"const": True}}, "required": ["persist_profile"]},
+                "then": {"required": ["subject_id", "request_id"]},
+            }
+        ],
     },
 }
 
-# ── JSON-RPC 辅助函数 ────────────────────────────────────────────
+
+def _make_response(request_id: Any, result: Any) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
 
-def _make_response(request_id: Any, result: Any) -> Dict[str, Any]:
-    """构造 JSON-RPC 2.0 成功响应。"""
-    return {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "result": result,
-    }
-
-
-def _make_error(request_id: Any, code: int, message: str, data: Any = None) -> Dict[str, Any]:
-    """构造 JSON-RPC 2.0 错误响应。"""
-    error_obj: Dict[str, Any] = {"code": code, "message": message}
+def _make_error(request_id: Any, code: int, message: str, data: Any = None) -> dict[str, Any]:
+    error: dict[str, Any] = {"code": code, "message": message}
     if data is not None:
-        error_obj["data"] = data
-    return {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": error_obj,
-    }
-
-
-# ── MCP Server 类 ─────────────────────────────────────────────────
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": request_id, "error": error}
 
 
 class BehaviorPsychologyMCPServer:
-    """行为心理分析 MCP Server 实现。
-
-    通过 stdin/stdout 与 MCP 客户端通信，支持 initialize、tools/list、tools/call 方法。
-    内部持有 DefaultBehaviorAnalyzer 单例，避免重复初始化知识库。
-    """
-
-    def __init__(self) -> None:
-        """初始化 MCP Server。
-
-        1. 调用 validate_config() 校验 API Key 等配置。
-        2. 创建 DefaultBehaviorAnalyzer 实例（仅一次）。
-        """
-        logger.info("正在校验运行时配置...")
-        validate_config()
-        logger.info("配置校验通过，正在初始化分析器...")
-        self._analyzer = DefaultBehaviorAnalyzer()
-        logger.info("分析器初始化完成，MCP Server 就绪。")
+    def __init__(
+        self,
+        analyzer: Optional[BehaviorAnalyzer] = None,
+        config: Optional[RuntimeConfig] = None,
+    ) -> None:
+        if analyzer is None:
+            runtime_config = config or validate_config()
+            analyzer = DefaultBehaviorAnalyzer(config=runtime_config)
+        self._analyzer = analyzer
+        self._pending: dict[str | int, asyncio.Task[None]] = {}
+        self._write_lock = asyncio.Lock()
 
     async def run(self) -> None:
-        """启动 MCP Server，从 stdin 读取 JSON-RPC 请求并处理。"""
-        logger.info("MCP Server 已启动，等待客户端连接...")
-        loop = asyncio.get_event_loop()
-        reader = asyncio.StreamReader()
+        loop = asyncio.get_running_loop()
+        reader = asyncio.StreamReader(limit=MAX_MESSAGE_BYTES)
         protocol = asyncio.StreamReaderProtocol(reader)
         await loop.connect_read_pipe(lambda: protocol, sys.stdin)
+        logger.info("MCP Server 已启动")
 
         while True:
             try:
                 line = await reader.readline()
-            except asyncio.CancelledError:
-                logger.info("MCP Server 收到取消信号，正在退出...")
-                break
+            except ValueError:
+                await self._send(_make_error(None, -32600, "Message too large"))
+                continue
             if not line:
-                logger.info("stdin 已关闭，MCP Server 退出。")
                 break
-
-            raw = line.decode("utf-8").strip()
-            if not raw:
+            if len(line) > MAX_MESSAGE_BYTES:
+                await self._send(_make_error(None, -32600, "Message too large"))
                 continue
-
             try:
-                request = json.loads(raw)
-            except json.JSONDecodeError as e:
-                logger.warning(f"收到非法 JSON: {raw[:200]}... 错误: {e}")
-                response = _make_error(None, -32700, "Parse error", str(e))
-                self._send(response)
+                message = json.loads(line.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                await self._send(_make_error(None, -32700, "Parse error"))
                 continue
 
-            await self._handle_request(request)
+            if not isinstance(message, dict):
+                await self._send(_make_error(None, -32600, "Invalid Request"))
+                continue
+            if "id" not in message:
+                await self._handle_notification(message)
+                continue
+            request_id = message.get("id")
+            if isinstance(request_id, bool) or not isinstance(request_id, (str, int)):
+                await self._send(_make_error(None, -32600, "Invalid Request"))
+                continue
+            if request_id in self._pending:
+                await self._send(_make_error(request_id, -32600, "Duplicate request id"))
+                continue
+            task = asyncio.create_task(self._process_and_send(message))
+            self._pending[request_id] = task
 
-    async def _handle_request(self, request: Dict[str, Any]) -> None:
-        """分发并处理单个 JSON-RPC 请求。"""
-        request_id = request.get("id")
-        method = request.get("method")
+        if self._pending:
+            await asyncio.gather(*self._pending.values(), return_exceptions=True)
+        close = getattr(self._analyzer, "close", None)
+        if close is not None:
+            result = close()
+            if hasattr(result, "__await__"):
+                await result
+
+    async def _process_and_send(self, message: dict[str, Any]) -> None:
+        request_id = message["id"]
+        try:
+            response = await self._handle_request(message)
+            await self._send(response)
+        except asyncio.CancelledError:
+            logger.info("请求已取消：id=%s", request_id)
+        except Exception:
+            logger.exception("请求处理失败：id=%s", request_id)
+            await self._send(_make_error(request_id, -32603, "Internal error"))
+        finally:
+            self._pending.pop(request_id, None)
+
+    async def _handle_notification(self, message: dict[str, Any]) -> None:
+        if message.get("jsonrpc") != "2.0" or not isinstance(message.get("method"), str):
+            return
+        method = message["method"]
+        if method == "notifications/initialized":
+            logger.info("客户端初始化完成")
+            return
+        if method == "notifications/cancelled":
+            params = message.get("params", {})
+            if isinstance(params, dict):
+                request_id = params.get("requestId")
+                if isinstance(request_id, (str, int)) and not isinstance(request_id, bool):
+                    task = self._pending.get(request_id)
+                    if task is not None:
+                        task.cancel()
+            return
+        logger.debug("忽略未知 notification：%s", method)
+
+    async def _handle_request(self, request: dict[str, Any]) -> dict[str, Any]:
+        request_id = request["id"]
+        if request.get("jsonrpc") != "2.0" or not isinstance(request.get("method"), str):
+            return _make_error(request_id, -32600, "Invalid Request")
+        method = request["method"]
         params = request.get("params", {})
-
-        logger.info(f"收到请求: method={method}, id={request_id}")
-
+        if not isinstance(params, dict):
+            return _make_error(request_id, -32602, "Invalid params")
         if method == "initialize":
-            response = self._handle_initialize(request_id, params)
-        elif method == "tools/list":
-            response = self._handle_tools_list(request_id)
-        elif method == "tools/call":
-            response = await self._handle_tools_call(request_id, params)
-        else:
-            logger.warning(f"未知方法: {method}")
-            response = _make_error(request_id, -32601, f"Method not found: {method}")
-
-        self._send(response)
-
-    def _handle_initialize(self, request_id: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-        """处理 initialize 请求，返回 Server 信息。"""
-        client_info = params.get("clientInfo", {})
-        logger.info(
-            f"客户端初始化: name={client_info.get('name', 'unknown')}, "
-            f"version={client_info.get('version', 'unknown')}"
-        )
-        result = {
-            "protocolVersion": "2024-11-05",
-            "serverInfo": {
-                "name": SERVER_NAME,
-                "version": SERVER_VERSION,
-            },
-            "capabilities": {
-                "tools": {},
-            },
-        }
-        logger.info("initialize 响应已发送。")
-        return _make_response(request_id, result)
-
-    def _handle_tools_list(self, request_id: Any) -> Dict[str, Any]:
-        """处理 tools/list 请求，返回可用工具列表。"""
-        result = {"tools": [TOOL_DEFINITION]}
-        logger.info(f"tools/list 响应: 返回 {len(result['tools'])} 个工具")
-        return _make_response(request_id, result)
-
-    async def _handle_tools_call(self, request_id: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-        """处理 tools/call 请求，调用分析器并返回结果。"""
-        tool_name = params.get("name", "")
-        arguments = params.get("arguments", {})
-
-        if tool_name != TOOL_DEFINITION["name"]:
-            logger.warning(f"请求调用了未知工具: {tool_name}")
-            return _make_error(request_id, -32602, f"Unknown tool: {tool_name}")
-
-        logger.info(f"tools/call: 调用工具 {tool_name}, arguments={json.dumps(arguments, ensure_ascii=False)[:200]}")
-
-        try:
-            req = AnalysisRequest(
-                behavior_description=arguments.get("behavior_description", ""),
-                subject_id=arguments.get("subject_id") or None,
-                context=arguments.get("context") or None,
-                request_id=arguments.get("request_id") or str(uuid.uuid4()),
-            )
-        except Exception as e:
-            logger.error(f"参数解析失败: {e}")
-            return _make_error(request_id, -32602, f"Invalid params: {e}")
-
-        try:
-            response = await self._analyzer.analyze(req)
-        except Exception as e:
-            logger.exception("分析器执行失败")
-            return _make_error(request_id, -32603, f"分析执行失败: {e}")
-
-        result = {
-            "content": [
+            requested = params.get("protocolVersion")
+            protocol_version = requested if requested in SUPPORTED_PROTOCOLS else SUPPORTED_PROTOCOLS[0]
+            return _make_response(
+                request_id,
                 {
-                    "type": "text",
-                    "text": json.dumps(response.model_dump(), ensure_ascii=False, indent=2),
-                }
-            ]
-        }
-        logger.info(f"tools/call: 分析完成，返回结果（confidence={response.confidence:.2f}）")
-        return _make_response(request_id, result)
+                    "protocolVersion": protocol_version,
+                    "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+                    "capabilities": {"tools": {}},
+                    "instructions": "默认不保存画像；保存前需显式设置 persist_profile=true。",
+                },
+            )
+        if method == "ping":
+            return _make_response(request_id, {})
+        if method == "tools/list":
+            return _make_response(request_id, {"tools": [TOOL_DEFINITION]})
+        if method == "tools/call":
+            return await self._handle_tools_call(request_id, params)
+        return _make_error(request_id, -32601, "Method not found")
 
-    def _send(self, response: Dict[str, Any]) -> None:
-        """将响应对象序列化为 JSON 并写入 stdout，追加换行符。"""
+    async def _handle_tools_call(self, request_id: str | int, params: dict[str, Any]) -> dict[str, Any]:
+        if params.get("name") != TOOL_DEFINITION["name"]:
+            return _make_error(request_id, -32602, "Unknown tool")
+        arguments = params.get("arguments", {})
+        if not isinstance(arguments, dict):
+            return _make_error(request_id, -32602, "Invalid params")
         try:
-            line = json.dumps(response, ensure_ascii=False)
-        except (TypeError, ValueError) as e:
-            line = json.dumps(_make_error(None, -32603, f"JSON 序列化失败: {e}"), ensure_ascii=False)
-        sys.stdout.write(line + "\n")
-        sys.stdout.flush()
+            analysis_request = AnalysisRequest.model_validate(arguments)
+        except Exception:
+            return _make_error(request_id, -32602, "Invalid params")
+        try:
+            response = await self._analyzer.analyze(analysis_request)
+        except Exception:
+            logger.exception("分析执行失败：id=%s", request_id)
+            return _make_error(request_id, -32603, "Analysis failed")
+        structured = response.model_dump(mode="json")
+        return _make_response(
+            request_id,
+            {
+                "content": [{"type": "text", "text": json.dumps(structured, ensure_ascii=False, indent=2)}],
+                "structuredContent": structured,
+                "isError": False,
+            },
+        )
 
-
-# ── 入口 ──────────────────────────────────────────────────────────
+    async def _send(self, response: dict[str, Any]) -> None:
+        line = json.dumps(response, ensure_ascii=False, separators=(",", ":"))
+        async with self._write_lock:
+            sys.stdout.write(line + "\n")
+            sys.stdout.flush()
 
 
 def main() -> None:
-    """MCP Server 主入口。"""
     try:
-        server = BehaviorPsychologyMCPServer()
-    except RuntimeError as e:
-        logger.error(f"Server 启动失败: {e}")
-        sys.stderr.write(f"错误: {e}\n")
-        sys.exit(1)
-
-    try:
-        asyncio.run(server.run())
+        asyncio.run(BehaviorPsychologyMCPServer().run())
     except KeyboardInterrupt:
-        logger.info("收到键盘中断，Server 退出。")
-    except Exception as e:
-        logger.exception("Server 运行时异常")
-        sys.stderr.write(f"运行时错误: {e}\n")
-        sys.exit(1)
+        logger.info("MCP Server 已退出")
+    except RuntimeError as exc:
+        logger.error("MCP Server 启动失败：%s", exc)
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":

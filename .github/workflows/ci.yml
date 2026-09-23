@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -c constraints.txt -e ".[dev]"
+      - run: python -m pytest --cov=src --cov-report=term-missing --cov-fail-under=70
+      - run: ruff check src tests
+      - run: mypy src
+      - run: pip-audit -r constraints.txt
+      - name: Verify wheel contents
+        run: |
+          python -m pip wheel . --no-deps -w dist
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(Path("dist").glob("*.whl"))
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          required = {
+              "knowledge_base/behavior_patterns.json",
+              "knowledge_base/psychological_mechanisms.json",
+              "knowledge_base/alternative_explanations.json",
+          }
+          missing = required - names
+          if missing:
+              raise SystemExit(f"wheel is missing: {sorted(missing)}")
+          PY

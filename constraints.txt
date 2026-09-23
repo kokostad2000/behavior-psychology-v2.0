@@ -1,0 +1,6 @@
+# Runtime versions used for the 2.1.0 verification run.
+# Libraries may install from the compatible ranges in pyproject.toml;
+# use `pip install -c constraints.txt -e .[dev]` to reproduce runtime versions.
+openai==2.38.0
+pydantic==2.11.7
+python-dotenv==1.2.2

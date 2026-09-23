@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=68,<81", "wheel>=0.41,<1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "behavior-psychology"
-version = "2.0.0"
-description = "行为心理分析引擎 — 基于 LLM 直接推理的行为动机推测工具"
+version = "2.1.0"
+description = "行为假设分析工具 — 提供受约束的多视角解释，不作心理诊断"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["psychology", "behavior-analysis", "llm", "mcp", "deepseek"]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -22,9 +22,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "openai>=1.0.0",
-    "pydantic>=2.0",
-    "python-dotenv>=1.0.0",
+    "openai>=2.0,<3",
+    "pydantic>=2.8,<3",
+    "python-dotenv>=1.2.2,<2",
 ]
 
 [project.scripts]
@@ -33,10 +33,37 @@ bpa-mcp = "src.mcp_server:main"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
-    "ruff>=0.1.0",
+    "pytest>=8.0,<9",
+    "pytest-cov>=5,<8",
+    "ruff>=0.9,<1",
+    "mypy>=1.8,<2",
+    "pip-audit>=2.7,<3",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*"]
+include = ["src*", "knowledge_base*"]
+
+[tool.setuptools.package-data]
+knowledge_base = [
+    "behavior_patterns.json",
+    "psychological_mechanisms.json",
+    "alternative_explanations.json",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+check_untyped_defs = true
+no_implicit_optional = true

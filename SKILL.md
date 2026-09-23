@@ -1,98 +1,64 @@
 ---
 name: analyzing-behavior
 description: >
-  Analyzes user-described behaviors or social interactions to identify
-  possible psychological mechanisms, cognitive patterns, and social factors.
-  Use when the user asks to analyze someone's behavior, understand why
-  someone acted a certain way, interpret social dynamics, or get
-  alternative explanations for an observed action. Returns a structured
-  report with tags, mechanisms, alternative explanations, confidence
-  score, and universality rating.
+  Organizes multiple non-diagnostic hypotheses for a user-described behavior or
+  social interaction. Use when the user asks for alternative interpretations
+  of observable behavior. Do not use for diagnosis, crisis intervention, legal
+  determinations, surveillance, employment decisions, or claims about another
+  person's true motives.
 ---
 
-# Skill: analyzing-behavior
+# Analyzing behavior
 
-## When to use
+## Required boundaries
 
-- The user asks to "analyze" a behavior, interaction, or social situation.
-- The user asks "why did someone act this way" or "what's going on here".
-- The user describes an interpersonal conflict and wants interpretation.
-- The user asks for alternative perspectives on someone's actions.
+- Treat the input as one person's limited observation, not objective evidence.
+- Never diagnose a disorder, infer a stable personality, or claim to know the subject's motive.
+- Do not use model confidence as a probability, clinical score, or measurement.
+- For self-harm, suicide, abuse, or immediate danger, stop behavioral inference and provide safety-first guidance.
+- For legal or clinical determinations, state the boundary and redirect to a qualified professional.
+- Do not use this tool for hiring, discipline, medical/legal decisions, partner monitoring, or profiling minors.
 
-## When NOT to use
+## Privacy
 
-- The user requests a clinical diagnosis or assessment of a mental disorder.
-- The user asks for a legal judgment or liability determination.
-- The user describes self-harm, suicidal ideation, or abuse — escalate to
-  appropriate crisis resources instead.
-- The input is purely factual (e.g., "What time is it?") with no behavior
-  to analyze.
+- Ask the user to remove direct identifiers and unnecessary sensitive details.
+- Explain that the description and context are sent to the configured model provider.
+- Do not save a profile by default.
+- Save only when the user explicitly opts in and supplies an anonymous `subject_id` plus stable `request_id`.
+- Support profile inspection, export, correction-by-removal, and deletion.
 
-## Steps
+## Workflow
 
-- [ ] 1. Parse the input into `AnalysisRequest`.
-  - Required: `behavior_description`
-  - Optional: `context`, `subject_id`, `request_id`
-- [ ] 2. Boundary check: invoke `_check_boundary_violation()` to intercept
-  clinical diagnosis, legal judgment, or crisis-related requests.
-- [ ] 3. LLM direct analysis: invoke `_llm_analyze()` to get behavior tags,
-  psychological mechanisms, alternative explanations, confidence, and
-  universality rating from the LLM.
-- [ ] 4. Assemble `AnalysisResponse` from the LLM result.
-- [ ] 5. If `subject_id` is provided, update the subject's profile and
-  regenerate `pattern_summary` when history >= 3 entries.
-- [ ] 6. Return `AnalysisResponse`.
+1. Parse `AnalysisRequest` and enforce field size limits.
+2. Check both `behavior_description` and `context` with the safety boundary.
+3. Send the observation as untrusted JSON data under a higher-priority safety instruction.
+4. Validate the model JSON against the internal schema.
+5. Keep only tags and mechanisms present in the packaged knowledge base.
+6. Remove clinical labels and supplement fewer than two alternatives with non-diagnostic context explanations.
+7. Return limitations and an uncalibrated-confidence notice.
+8. If and only if `persist_profile=true`, store the result idempotently outside the package directory.
 
 ## Input
 
-`AnalysisRequest` fields:
+| Field | Required | Limit | Meaning |
+|---|---:|---:|---|
+| `behavior_description` | yes | 2–4000 chars | Observable behavior, preferably de-identified |
+| `context` | no | 4000 chars | De-identified situation and relationship context |
+| `subject_id` | for persistence | 128 chars | Anonymous local identifier |
+| `request_id` | for persistence | 128 chars | Stable idempotency key |
+| `persist_profile` | no | boolean | Explicit local-storage opt-in; default `false` |
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `behavior_description` | string | Yes | Observed behavior text. |
-| `context` | string | No | Environment, time, place, trigger event. |
-| `subject_id` | string | No | Persistent identifier for longitudinal tracking. |
-| `request_id` | string | No | Trace / idempotency ID. |
+## Output expectations
 
-## Output
+- At least two alternative explanations for non-blocked results.
+- Per-mechanism confidence and universality labels, both clearly framed as hypotheses.
+- Global `confidence_basis`, `limitations`, `disclaimer`, and `degradation_flags`.
+- `blocked` and `safety_category` when a safety boundary is triggered.
+- `profile_persisted` so the caller can verify whether a local write occurred.
 
-`AnalysisResponse` fields:
+## Failure behavior
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `tags` | list[string] | Matched behavior tags. |
-| `psychological_mechanisms` | list[object] | `{name, explanation}` |
-| `alternative_explanations` | list[object] | `{perspective, reasoning}` |
-| `confidence` | number | 0.0–1.0 overall confidence. |
-| `universality_rating` | string | 高 / 中 / 低 |
-| `disclaimer` | string | Fixed disclaimer text. |
-| `subject_id` | string | Echo of request `subject_id`. |
-| `pattern_summary` | string | Pattern summary when history >= 3 entries. |
-| `blocked` | boolean | Whether analysis was blocked by boundary check. |
-| `degradation_flags` | list[string] | Degradation tags (e.g., llm_no_tags, profile_update_failed). |
-
-## References
-
-- [docs/api_specs.md](docs/api_specs.md) — API schema, MCP / OpenClaw / CLI
-  integration guide.
-- [knowledge_base/behavior_patterns.json](knowledge_base/behavior_patterns.json)
-  — Behavior pattern library.
-- [knowledge_base/psychological_mechanisms.json](knowledge_base/psychological_mechanisms.json)
-  — Psychological mechanism library.
-- [knowledge_base/alternative_explanations.json](knowledge_base/alternative_explanations.json)
-  — Alternative-explanation rules.
-
-## Failure Strategy
-
-| Stage | Failure | Degradation |
-|-------|---------|-------------|
-| LLM API call | No DEEPSEEK_API_KEY configured | Return empty result with warning; suggest setting env var. |
-| LLM API call | API error or timeout | Return empty result with warning; suggest checking network / key balance. |
-| Profile update | Disk I/O error | Log warning; analysis result unaffected. |
-
-## Constraints
-
-- Do not output clinical diagnostic labels (e.g., NPD, BPD, depression).
-- Do not present low-confidence interpretations as facts.
-- Always include the fixed disclaimer in the response.
-- Log all degradations in Chinese with impact and remediation guidance.
+- Invalid model JSON: return no mechanisms, `confidence=0`, and `llm_invalid_output`.
+- Provider/network failure: return no mechanisms, `confidence=0`, and `llm_api_error`.
+- Degraded outputs are never written to a profile.
+- Profile I/O failure does not discard the analysis; return `profile_update_failed`.

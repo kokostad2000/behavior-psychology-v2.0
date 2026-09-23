@@ -1,105 +1,56 @@
-"""pytest 全局 fixtures。"""
+"""Shared offline test doubles."""
 
-import os
-from unittest.mock import MagicMock, patch
+from __future__ import annotations
+
+from types import SimpleNamespace
 
 import pytest
 
 from src.analyzer import DefaultBehaviorAnalyzer
+from src.config import RuntimeConfig
+from src.profile_store import ProfileStore
+
+
+class FakeCompletions:
+    def __init__(self, content: str = "{}", error: Exception | None = None) -> None:
+        self.content = content
+        self.error = error
+        self.calls: list[dict] = []
+
+    async def create(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.error:
+            raise self.error
+        message = SimpleNamespace(content=self.content)
+        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+class FakeClient:
+    def __init__(self, content: str = "{}", error: Exception | None = None) -> None:
+        self.completions = FakeCompletions(content, error)
+        self.chat = SimpleNamespace(completions=self.completions)
+        self.closed = False
+
+    async def close(self) -> None:
+        self.closed = True
 
 
 @pytest.fixture
-def mock_api_key(monkeypatch):
-    """设置 mock API Key，避免测试时依赖真实环境变量。"""
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-mock-key")
+def runtime_config() -> RuntimeConfig:
+    return RuntimeConfig(
+        provider="deepseek",
+        api_key="test-key",
+        model="test-model",
+        base_url="https://example.invalid",
+    )
 
 
 @pytest.fixture
-def mock_openai_client():
-    """Mock OpenAI 客户端，避免真实 API 调用。"""
-    mock_client = MagicMock()
-    mock_embedding = MagicMock()
-    mock_embedding.data = [MagicMock(embedding=[0.1] * 1536)]
-    mock_client.embeddings.create.return_value = mock_embedding
+def analyzer_factory(tmp_path, runtime_config):
+    def factory(content: str = "{}", error: Exception | None = None):
+        client = FakeClient(content, error)
+        store = ProfileStore(tmp_path / "profiles.json")
+        analyzer = DefaultBehaviorAnalyzer(config=runtime_config, client=client, profile_store=store)
+        return analyzer, client, store
 
-    mock_chat = MagicMock()
-    mock_choice = MagicMock()
-    mock_choice.message.content = """
-    {
-        "reasoning": "测试推理",
-        "mechanisms": [{"name": "测试机制", "confidence": 0.8}],
-        "alternative_perspectives": [{"perspective": "测试视角", "reasoning": "测试解释"}],
-        "confidence": 0.8,
-        "universality_rating": "中"
-    }
-    """
-    mock_chat.choices = [mock_choice]
-    mock_client.chat.completions.create.return_value = mock_chat
-
-    return mock_client
-
-
-@pytest.fixture
-def analyzer(mock_api_key, mock_openai_client):
-    """提供已初始化的 DefaultBehaviorAnalyzer fixture，使用 mock API Key。"""
-    with patch("src.analyzer.OpenAI", return_value=mock_openai_client):
-        with patch("src.analyzer._load_json", side_effect=_mock_load_json):
-            with patch("src.analyzer._save_json"):
-                with patch("src.analyzer._load_profiles", return_value={}):
-                    with patch("src.analyzer._save_profiles"):
-                        instance = DefaultBehaviorAnalyzer()
-                        return instance
-
-
-def _mock_load_json(path: str):
-    """Mock 加载 JSON 数据文件，返回最小可用数据集。"""
-    basename = os.path.basename(path)
-    if basename == "behavior_patterns.json":
-        return {
-            "patterns": [
-                {
-                    "pattern_id": "P001",
-                    "name": "打断他人发言",
-                    "keywords": ["打断", "插话", "会议"],
-                    "tags": ["支配行为", "低同理心"],
-                }
-            ]
-        }
-    elif basename == "psychological_mechanisms.json":
-        return {
-            "mechanisms": [
-                {
-                    "mechanism_id": "M001",
-                    "name": "自我中心偏差",
-                    "related_tags": ["支配行为", "低同理心"],
-                    "description": "过度关注自身需求而忽略他人感受",
-                }
-            ]
-        }
-    elif basename == "alternative_explanations.json":
-        return {
-            "rules": [
-                {
-                    "rule_id": "R001",
-                    "trigger_tags": ["支配行为"],
-                    "explanations": [
-                        {
-                            "perspective": "情境压力",
-                            "reasoning": "可能因时间紧迫而急于表达",
-                        }
-                    ],
-                }
-            ]
-        }
-    elif basename == "cases.json":
-        return {
-            "cases": [
-                {
-                    "case_id": "C001",
-                    "behavior_description": "同事在会议中多次打断我发言",
-                    "behavior_tags": ["支配行为", "低同理心"],
-                    "embedding": [0.1] * 1536,
-                }
-            ]
-        }
-    return {}
+    return factory

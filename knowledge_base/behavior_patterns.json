@@ -1,96 +1,81 @@
 {
-  "version": "1.0",
-  "description": "行为模式库 - 将自然语言描述的行为映射为结构化标签",
+  "version": "2.1",
+  "description": "可观察行为标签词表。标签只复述输入中的行为形式，不编码人格、疾病、意图、关系价值或心理机制。",
   "patterns": [
     {
-      "behavior": "被指出错误后攻击别人",
-      "tags": ["defensive", "status_protection", "aggressive_response", "ego_defense"],
-      "context_hints": ["被批评", "被指出错误", "被质疑"],
-      "intensity": "high"
+      "behavior": "被指出错误后以攻击性言语回应",
+      "tags": ["hostile_reply_after_criticism", "raised_conflict_intensity", "counterattack"],
+      "context_hints": ["被批评", "被指出错误", "被质疑"]
     },
     {
-      "behavior": "反复强调自己的资历/成就",
-      "tags": ["status_protection", "authority_claiming", "insecurity_masking", "dominance_display"],
-      "context_hints": ["被质疑", "竞争环境", "新环境"],
-      "intensity": "medium"
+      "behavior": "反复强调自己的资历或成就",
+      "tags": ["repeated_credential_reference", "repeated_achievement_reference", "authority_claim"],
+      "context_hints": ["被质疑", "竞争环境", "新环境"]
     },
     {
       "behavior": "打断别人说话",
-      "tags": ["control", "impatience", "anxiety", "dominance_display"],
-      "context_hints": ["争论", "会议", "紧张场合"],
-      "intensity": "medium"
+      "tags": ["conversation_interruption", "turn_taking_overlap", "rapid_response"],
+      "context_hints": ["争论", "会议", "紧张场合"]
     },
     {
       "behavior": "反复解释同一件事",
-      "tags": ["cognitive_dissonance", "anxiety", "need_for_validation", "over_explaining"],
-      "context_hints": ["被质疑", "感到不安", "需要被理解"],
-      "intensity": "low"
+      "tags": ["repeated_explanation", "message_repetition", "clarification_request"],
+      "context_hints": ["被质疑", "需要澄清", "信息不一致"]
     },
     {
-      "behavior": "回避回应/转移话题",
-      "tags": ["conflict_avoidance", "emotional_regulation", "defensive", "overwhelm"],
-      "context_hints": ["冲突", "压力", "感到不适"],
-      "intensity": "medium"
+      "behavior": "没有回答问题或转移话题",
+      "tags": ["question_nonresponse", "topic_shift", "conversation_redirection"],
+      "context_hints": ["冲突", "压力", "敏感话题"]
     },
     {
-      "behavior": "不回消息/已读不回",
-      "tags": ["avoidance", "boundary_setting", "emotional_overwhelm", "low_priority"],
-      "context_hints": ["日常", "冲突后", "忙碌期"],
-      "intensity": "low"
+      "behavior": "未回复或延迟回复消息",
+      "tags": ["message_nonresponse", "delayed_response", "reduced_contact"],
+      "context_hints": ["日常", "冲突后", "忙碌期"]
     },
     {
-      "behavior": "过度道歉",
-      "tags": ["anxiety", "people_pleasing", "fear_of_rejection", "low_self_worth"],
-      "context_hints": ["轻微失误", "日常互动", "新关系"],
-      "intensity": "low"
+      "behavior": "在多次互动中反复道歉",
+      "tags": ["repeated_apology", "apology_frequency_increase", "post_error_reassurance_request"],
+      "context_hints": ["失误后", "日常互动", "新关系"]
     },
     {
-      "behavior": "突然冷淡/疏远",
-      "tags": ["emotional_regulation", "boundary_setting", "conflict_avoidance", "burnout"],
-      "context_hints": ["冲突后", "长期压力", "关系变化"],
-      "intensity": "medium"
+      "behavior": "互动频率下降或回复变短",
+      "tags": ["reduced_contact", "shorter_replies", "interaction_change"],
+      "context_hints": ["冲突后", "工作繁忙", "关系变化"]
     },
     {
-      "behavior": "过度分享个人信息",
-      "tags": ["trust_seeking", "connection_seeking", "boundary_blur", "loneliness"],
-      "context_hints": ["新关系", "深夜", "情绪低落"],
-      "intensity": "low"
+      "behavior": "在关系早期快速分享大量个人信息",
+      "tags": ["rapid_self_disclosure", "high_detail_disclosure", "personal_information_sharing"],
+      "context_hints": ["新关系", "长时间对话", "寻求支持"]
     },
     {
-      "behavior": "总是最后一个回复",
-      "tags": ["control", "power_dynamic", "avoidance", "low_priority"],
-      "context_hints": ["日常聊天", "群聊", "工作沟通"],
-      "intensity": "low"
+      "behavior": "在多人互动中通常较晚回复",
+      "tags": ["delayed_response", "asynchronous_communication", "late_turn_response"],
+      "context_hints": ["日常聊天", "群聊", "工作沟通"]
     },
     {
-      "behavior": "在群聊中突然沉默",
-      "tags": ["social_anxiety", "observer_role", "emotional_regulation", "discomfort"],
-      "context_hints": ["争论", "话题转换", "新人加入"],
-      "intensity": "low"
+      "behavior": "在群聊中停止或减少发言",
+      "tags": ["reduced_participation", "group_silence", "participation_change"],
+      "context_hints": ["争论", "话题转换", "新人加入"]
     },
     {
-      "behavior": "频繁询问你在做什么",
-      "tags": ["insecurity", "connection_seeking", "control", "attachment"],
-      "context_hints": ["恋爱关系", "友谊", "异地"],
-      "intensity": "medium"
+      "behavior": "频繁询问对方正在做什么",
+      "tags": ["frequent_check_in", "repeated_status_question", "contact_frequency_increase"],
+      "context_hints": ["亲密关系", "友谊", "异地"]
     },
     {
-      "behavior": "对小事过度反应",
-      "tags": ["emotional_dysregulation", "stress_accumulation", "trigger_response", "boundary_violation"],
-      "context_hints": ["长期压力", "疲惫", "累积不满"],
-      "intensity": "high"
+      "behavior": "对较小触发事件出现强烈情绪表达",
+      "tags": ["intense_emotional_response", "raised_voice_or_crying", "rapid_emotional_escalation"],
+      "context_hints": ["长期压力", "疲惫", "累积冲突"]
     },
     {
-      "behavior": "总是说'随便/都行'",
-      "tags": ["conflict_avoidance", "low_agency", "people_pleasing", "decision_fatigue"],
-      "context_hints": ["日常决策", "关系互动", "疲惫期"],
-      "intensity": "low"
+      "behavior": "反复回答“随便”或把选择交给对方",
+      "tags": ["preference_nonexpression", "decision_delegation", "repeated_neutral_answer"],
+      "context_hints": ["日常决策", "关系互动", "疲惫期"]
     },
     {
-      "behavior": "对别人的成功表现出冷漠",
-      "tags": ["envy", "insecurity", "competitive_threat", "emotional_regulation"],
-      "context_hints": ["同行", "朋友", "相似背景"],
-      "intensity": "medium"
+      "behavior": "对他人的成功没有明显积极回应",
+      "tags": ["limited_positive_response", "response_delay", "topic_shift_after_good_news"],
+      "context_hints": ["同事", "朋友", "相似背景"]
     }
   ]
 }

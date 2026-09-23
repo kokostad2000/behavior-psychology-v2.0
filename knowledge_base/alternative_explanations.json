@@ -1,193 +1,130 @@
 {
-  "version": "1.1",
-  "description": "替代解释库 - 防止单因果推断，提供多种可能解释（含场景上下文过滤）",
+  "version": "2.1",
+  "description": "用于补充可核实的情境解释。条目不含未经校准的高/中/低概率，也不宣称命中当前个体。",
   "rules": [
     {
-      "behavior_tags": ["avoidance", "boundary_setting", "emotional_overwhelm"],
-      "context_keywords": ["冷淡", "不回消息", "不回复", "已读不回", "沉默", "疏远", "回避", "失联"],
-      "primary_mechanism": "attachment_style_avoidant",
+      "behavior_tags": ["message_nonresponse", "delayed_response", "reduced_contact", "shorter_replies"],
+      "context_keywords": ["冷淡", "不回消息", "不回复", "已读不回", "沉默", "疏远", "失联"],
       "alternatives": [
         {
-          "explanation": "当前处于高强度工作期，注意力资源被完全占用",
-          "likelihood": "high",
-          "context": ["工作旺季", "项目截止", "职业变动"]
+          "explanation": "工作量、照护责任或日程变化可能暂时占用注意力。",
+          "what_to_check": ["回复延迟是否也出现在其他联系人中", "近期日程是否发生变化"]
         },
         {
-          "explanation": "社交疲劳，需要独处恢复能量（内向者常见）",
-          "likelihood": "high",
-          "context": ["连续社交", "大型活动后", "日常疲惫"]
+          "explanation": "通知设置、设备故障或较少查看消息的习惯也会造成延迟。",
+          "what_to_check": ["其他渠道是否同样延迟", "当事人的常用沟通方式"]
         },
         {
-          "explanation": "对当前话题或关系感到不适，用沉默表达边界",
-          "likelihood": "medium",
-          "context": ["话题越界", "关系压力", "价值观冲突"]
-        },
-        {
-          "explanation": "手机使用习惯差异（不看消息/关闭通知）",
-          "likelihood": "medium",
-          "context": ["数字极简", "通知管理", "习惯差异"]
+          "explanation": "对方可能正在调整互动频率或暂时需要个人空间。",
+          "what_to_check": ["是否明确表达过边界", "变化从何时开始、是否只针对特定话题"]
         }
       ]
     },
     {
-      "behavior_tags": ["defensive", "status_protection", "aggressive_response"],
-      "context_keywords": ["反驳", "攻击", "防御", "生气", "争吵", "批评", "指责", "顶撞", "对抗"],
-      "primary_mechanism": "ego_defense",
+      "behavior_tags": ["hostile_reply_after_criticism", "raised_conflict_intensity", "counterattack"],
+      "context_keywords": ["反驳", "攻击", "生气", "争吵", "批评", "指责", "顶撞", "对抗"],
       "alternatives": [
         {
-          "explanation": "短期工作压力导致的情绪管理能力下降",
-          "likelihood": "high",
-          "context": ["deadline临近", "绩效评估", "职场竞争"]
+          "explanation": "反馈方式、场合或事实分歧本身可能使冲突升级。",
+          "what_to_check": ["反馈是否公开且突然", "双方对事实是否有不同资料"]
         },
         {
-          "explanation": "成长环境中批评=危险的习得反应",
-          "likelihood": "medium",
-          "context": ["高压家庭", "严格教育", "早期经历"]
+          "explanation": "时间压力、疲劳或同时发生的其他压力可能暂时降低沟通质量。",
+          "what_to_check": ["行为是否只出现在高压时段", "休息后是否恢复"]
         },
         {
-          "explanation": "当前处于社会竞争环境，防御是生存策略",
-          "likelihood": "high",
-          "context": ["职场", "学术竞争", "资源争夺"]
-        },
-        {
-          "explanation": "沟通方式差异（直接 vs 间接）的文化/个人风格",
-          "likelihood": "medium",
-          "context": ["跨文化", "性格差异", "沟通风格"]
+          "explanation": "直接而强烈的沟通习惯可能被另一方理解为攻击。",
+          "what_to_check": ["相同表达在其团队中的通常含义", "是否存在明确威胁或侮辱性内容"]
         }
       ]
     },
     {
-      "behavior_tags": ["people_pleasing", "low_agency", "conflict_avoidance"],
-      "context_keywords": ["讨好", "顺从", "不敢拒绝", "随便", "都行", "没主见", "怕冲突", "迎合"],
-      "primary_mechanism": "people_pleasing",
+      "behavior_tags": ["repeated_apology", "preference_nonexpression", "decision_delegation"],
+      "context_keywords": ["道歉", "顺从", "不敢拒绝", "随便", "都行", "没主见", "怕冲突", "迎合"],
       "alternatives": [
         {
-          "explanation": "文化背景中集体主义价值观的体现",
-          "likelihood": "high",
-          "context": ["东亚文化", "家庭传统", "教育背景"]
+          "explanation": "对方可能确实没有强烈偏好，或把这个选择视为低重要度。",
+          "what_to_check": ["换成重要选择后是否表达偏好", "是否明确说过都可以"]
         },
         {
-          "explanation": "职业角色要求（服务行业、团队协作）",
-          "likelihood": "high",
-          "context": ["客服", "医疗", "教育", "管理"]
+          "explanation": "职业或礼貌规范可能鼓励道歉、让步和避免公开冲突。",
+          "what_to_check": ["相同场合的团队规范", "工作角色是否要求服务性表达"]
         },
         {
-          "explanation": "当前关系阶段（新关系/客气期）的策略",
-          "likelihood": "medium",
-          "context": ["初识", "职场新人", "客户关系"]
-        },
-        {
-          "explanation": "决策疲劳，用小决策节省认知资源",
-          "likelihood": "medium",
-          "context": ["忙碌期", "多任务", "低能量"]
+          "explanation": "连续决策或疲劳可能使人把部分选择交给他人。",
+          "what_to_check": ["行为是否集中在忙碌时段", "休息后是否变化"]
         }
       ]
     },
     {
-      "behavior_tags": ["insecurity", "control", "attachment"],
-      "context_keywords": ["异地恋", "查岗", "男友", "女友", "恋爱", "不回消息", "已读不回", "前任", "分手", "复合", "暧昧", "吃醋", "嫉妒"],
-      "primary_mechanism": "attachment_style_anxious",
+      "behavior_tags": ["frequent_check_in", "repeated_status_question", "contact_frequency_increase"],
+      "context_keywords": ["异地", "查岗", "恋爱", "不回消息", "前任", "分手", "复合", "暧昧"],
       "alternatives": [
         {
-          "explanation": "关系不确定性导致的正常关心（异地/新关系）",
-          "likelihood": "high",
-          "context": ["异地恋", "新恋爱", "关系转折"]
+          "explanation": "关系阶段或约定不清可能增加状态确认。",
+          "what_to_check": ["双方是否讨论过联系频率", "是否刚发生关系变化"]
         },
         {
-          "explanation": "过往关系创伤后的合理谨慎",
-          "likelihood": "medium",
-          "context": ["前任背叛", "被 ghosting", "信任重建"]
+          "explanation": "询问也可能来自日程协调、关心安全或共享活动安排。",
+          "what_to_check": ["问题内容是否与具体安排有关", "是否要求对方实时报告无关信息"]
         },
         {
-          "explanation": "信息获取习惯差异（喜欢分享日常 vs 喜欢独立）",
-          "likelihood": "medium",
-          "context": ["沟通习惯", "依恋风格差异", "性格"]
-        },
-        {
-          "explanation": "对方确实表现出了距离感，询问是合理的",
-          "likelihood": "medium",
-          "context": ["对方已读不回", "互动减少", "关系变化"]
+          "explanation": "双方对日常分享频率的偏好可能不同。",
+          "what_to_check": ["各自期望的沟通节奏", "能否协商双方都能接受的边界"]
         }
       ]
     },
     {
-      "behavior_tags": ["control", "dominance_display", "low_priority"],
-      "context_keywords": ["同事", "领导", "下属", "职场", "工作群", "项目", "会议", "汇报", "绩效", "升职", "办公室", "团队"],
-      "primary_mechanism": "dominance_display",
+      "behavior_tags": ["conversation_interruption", "turn_taking_overlap", "repeated_credential_reference", "authority_claim"],
+      "context_keywords": ["同事", "领导", "下属", "职场", "项目", "会议", "汇报", "团队"],
       "alternatives": [
         {
-          "explanation": "职场角色要求的管理行为（项目经理/团队负责人需要把控进度）",
-          "likelihood": "high",
-          "context": ["项目管理", "团队协作", "职责范围内"]
+          "explanation": "主持、决策或进度管理职责可能要求更主动地控制发言顺序。",
+          "what_to_check": ["当事人是否是主持人", "打断是否用于澄清议程或时间"]
         },
         {
-          "explanation": "组织文化中的竞争导向，强势沟通是默认风格",
-          "likelihood": "high",
-          "context": ["高压职场", "结果导向", "狼性文化"]
+          "explanation": "线上延迟、多人同时开口或团队讨论规范可能造成发言重叠。",
+          "what_to_check": ["是否为远程会议", "其他人是否也频繁重叠发言"]
         },
         {
-          "explanation": "对方确实处于高压 deadline 期，沟通风格临时变急促",
-          "likelihood": "medium",
-          "context": ["deadline临近", "项目冲刺", "季度考核"]
-        },
-        {
-          "explanation": "个人工作习惯差异（喜欢同步沟通 vs 异步沟通）",
-          "likelihood": "medium",
-          "context": ["沟通偏好", "工作风格", "效率习惯"]
+          "explanation": "资历信息可能与当前决策的专业范围直接相关。",
+          "what_to_check": ["资历是否与议题相关", "是否在被要求说明依据后提出"]
         }
       ]
     },
     {
-      "behavior_tags": ["emotional_dysregulation", "trigger_response"],
-      "context_keywords": ["崩溃", "大哭", "暴怒", "失控", "情绪爆发", "歇斯底里", "过度反应", "敏感", "trigger"],
-      "primary_mechanism": "catastrophizing",
+      "behavior_tags": ["intense_emotional_response", "raised_voice_or_crying", "rapid_emotional_escalation"],
+      "context_keywords": ["崩溃", "大哭", "暴怒", "失控", "情绪爆发", "过度反应", "敏感"],
       "alternatives": [
         {
-          "explanation": "长期压力累积后的正常崩溃点",
-          "likelihood": "high",
-          "context": ["长期高压", "多源压力", "缺乏支持"]
+          "explanation": "睡眠不足、疼痛、饥饿或持续压力可能影响当时的情绪阈值。",
+          "what_to_check": ["是否存在可观察的生理或工作负荷", "行为是否随恢复而变化"]
         },
         {
-          "explanation": "生理因素（睡眠不足、饥饿、激素周期）",
-          "likelihood": "high",
-          "context": ["熬夜", "经期", "低血糖", "疾病"]
+          "explanation": "当前事件可能只是较长冲突链条中最后出现的触发点。",
+          "what_to_check": ["此前是否有未解决的同类事件", "双方掌握的事件范围是否一致"]
         },
         {
-          "explanation": "触发事件触发了过往创伤记忆",
-          "likelihood": "medium",
-          "context": ["类似过往创伤", "anniversary", "敏感话题"]
-        },
-        {
-          "explanation": "对方的行为确实越界，反应是合理的",
-          "likelihood": "medium",
-          "context": ["边界被侵犯", "不尊重", "反复行为"]
+          "explanation": "观察者可能不了解该事件对当事人的具体意义或边界。",
+          "what_to_check": ["当事人如何描述事件影响", "是否存在明确的边界或损失"]
         }
       ]
     },
     {
-      "behavior_tags": ["envy", "competitive_threat", "insecurity"],
-      "context_keywords": ["嫉妒", "眼红", "竞争", "攀比", "同事", "同学", "同行", "升职", "成绩", "成功", "炫耀"],
-      "primary_mechanism": "social_comparison",
+      "behavior_tags": ["limited_positive_response", "response_delay", "topic_shift_after_good_news"],
+      "context_keywords": ["竞争", "同事", "同学", "同行", "升职", "成绩", "成功", "好消息"],
       "alternatives": [
         {
-          "explanation": "对方的成功确实带来了实际竞争压力",
-          "likelihood": "high",
-          "context": ["同行", "同部门", "资源竞争"]
+          "explanation": "对方可能没有看到消息、正在忙碌，或通常很少用明显情绪表达。",
+          "what_to_check": ["其对其他好消息的表达方式", "是否在稍后作出回应"]
         },
         {
-          "explanation": "价值观差异（不认为对方的方向值得庆祝）",
-          "likelihood": "medium",
-          "context": ["价值分歧", "不同路径", "优先级差异"]
+          "explanation": "该消息可能同时带来资源、岗位或日程变化，需要时间处理。",
+          "what_to_check": ["是否存在具体利益变化", "对方是否随后提出实际问题"]
         },
         {
-          "explanation": "社交能量低，无法真诚表达情感",
-          "likelihood": "medium",
-          "context": ["疲惫", "情绪低落", "introversion"]
-        },
-        {
-          "explanation": "单纯的信息过载，没来得及回应",
-          "likelihood": "medium",
-          "context": ["消息多", "忙碌", "信息疲劳"]
+          "explanation": "双方可能对这项成就的重要性有不同理解。",
+          "what_to_check": ["是否明确说明消息意义", "对方是否知道期待怎样回应"]
         }
       ]
     }
